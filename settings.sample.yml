@@ -1,0 +1,11 @@
+orders_page: http://example.com
+# in seconds
+update_interval: 10
+credentials:
+  personal_cabinet:
+     url: https://passport.yandex.ru/passport
+     login:
+     password:
+  telegram_bot:
+    api_token: 525357957:AADSOBXHRjItSJYOJ7k57ptFdv-92pHJBjo
+    chat_id: 12312432423

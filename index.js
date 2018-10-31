@@ -6,8 +6,8 @@ const { DateTime } = require('luxon');
 const cheerio = require('cheerio');
 const DATE_FORMAT = 'dd-LL-yyyy';
 
-async function run() {
-  settings = readSettings();
+function run() {
+  let settings = readSettings();
 
   // TODO(khataev): kill task longer than threshold time
   if (settings) {
@@ -57,23 +57,20 @@ function logIn(settings, callback) {
     // console.log('body:', body); // Print the HTML for the Google homepage.
     writeToFile(body, 'files/login.html');
 
-    // tomorrow = DateTime.local().plus({ days: 1 });
-    // getOrdersUpdates(settings);
-    // getOrdersUpdates(settings, tomorrow);
-
+    callback(settings);
   });
 }
 
-function getUpdates(error, response, body) {
-  console.log('error:', error); // Print the error if one occurred
-  console.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
-  // console.log('body:', body); // Print the HTML for the Google homepage.
-  writeToFile(body, 'files/login.html');
-
-  // tomorrow = DateTime.local().plus({ days: 1 });
-  // getOrdersUpdates(settings);
-  // getOrdersUpdates(settings, tomorrow);
-
+async function getUpdates(settings) {
+  update_interval = settings.update_interval * 1000;
+  tomorrow = DateTime.local().plus({ days: 1 });
+  while(true) {
+    dt_string = DateTime.local().toISO();
+    console.log(`getting updates at ${dt_string}`);
+    getOrdersUpdates(settings);
+    getOrdersUpdates(settings, tomorrow);
+    await Promise.all([sleep(update_interval)]);
+  }
 }
 
 function formatDate(date) {
@@ -91,14 +88,19 @@ function filterByTime(i, elem) {
     // dt = DateTime.fromFormat(dt_string, 'dd-LL HH:mm');
     let hour = Number.parseInt(dt_string.split(' ')[1].split(':')[0]);
 
-    return hour > 7 && hour < 17;
+    return hour > 7 && hour < 23;
   } catch (e) {
     return true;
   }
 }
 
+function filterByStatus(i, elem) {
+  // TODO
+  return true;
+}
+
 function filterOrders(i, elem) {
-  return filterOnlyOrders(i, elem) && filterByTime(i, elem);
+  return filterOnlyOrders(i, elem) && filterByTime(i, elem) && filterByStatus(i, elem);
 }
 
 function getOrdersUpdates(settings, date = DateTime.local()) {
@@ -153,6 +155,7 @@ function writeToFile(text, file_name) {
   });
 }
 
+// TODO: определение chat_id по имени канала
 function sendToTelegram(settings, text) {
   api_token = settings.credentials.telegram_bot.api_token;
   chat_id   = settings.credentials.telegram_bot.chat_id;
@@ -164,8 +167,10 @@ function sendToTelegram(settings, text) {
   request.post({
     url: url
   }, function(error, response, body) {
-    console.log('error:', error); // Print the error if one occurred
-    console.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
+    if (error) {
+      console.log('error:', error); // Print the error if one occurred
+      console.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
+    }
   });
 }
 
