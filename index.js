@@ -1,54 +1,172 @@
-let yaml = require('js-yaml');
-let request = require('request');
-let fs = require('fs');
+const yaml = require('js-yaml');
+const requestGlobal = require('request');
+let request = requestGlobal.defaults({jar: true});
+const fs = require('fs');
+const { DateTime } = require('luxon');
+const cheerio = require('cheerio');
+const DATE_FORMAT = 'dd-LL-yyyy';
 
-// Get document, or throw exception on error
-try {
-  let doc = yaml.safeLoad(fs.readFileSync('settings.yml', 'utf8'));
+async function run() {
+  settings = readSettings();
 
-// setBreakpoint();
+  // TODO(khataev): kill task longer than threshold time
+  if (settings) {
+    logIn(settings, getUpdates)
+    // sendToTelegram(settings);
+    // let i = 1;
+    // while(true) {
+    //   console.log(i)
+    //   await Promise.all([sleep(5000)]);
+    //   i = i + 1;
+    // }
+  }
+}
 
-  request.post({
-    url: 'https://passport.yandex.ru/passport',
+async function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function readSettings() {
+  let settings;
+  try {
+    settings = yaml.safeLoad(fs.readFileSync('settings.yml', 'utf8'));
+  } catch (e) {
+    console.log(e);
+  }
+
+  return settings;
+}
+
+function logIn(settings, callback) {
+  form = {
+    login: settings.credentials.personal_cabinet.login,
+    pass: settings.credentials.personal_cabinet.password
+    // password: settings.credentials.personal_cabinet.password
+  };
+
+  data = {
+    url: settings.credentials.personal_cabinet.login_url,
     followAllRedirects: true,
-    jar: true,
-    form: { login: doc.credentials.personal_cabinet.login, password: doc.credentials.personal_cabinet.password }
-  }, function (error, response, body) {
+    // jar: true,
+    form: form
+  };
+
+  request.post(data, function (error, response, body) {
     console.log('error:', error); // Print the error if one occurred
     console.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
     // console.log('body:', body); // Print the HTML for the Google homepage.
+    writeToFile(body, 'files/login.html');
 
-    fs.writeFile('response.html', body, function(err) {
-      if(err) {
-          return console.log(err);
-      }
-      console.log("The file was saved!");
+    // tomorrow = DateTime.local().plus({ days: 1 });
+    // getOrdersUpdates(settings);
+    // getOrdersUpdates(settings, tomorrow);
+
+  });
+}
+
+function getUpdates(error, response, body) {
+  console.log('error:', error); // Print the error if one occurred
+  console.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
+  // console.log('body:', body); // Print the HTML for the Google homepage.
+  writeToFile(body, 'files/login.html');
+
+  // tomorrow = DateTime.local().plus({ days: 1 });
+  // getOrdersUpdates(settings);
+  // getOrdersUpdates(settings, tomorrow);
+
+}
+
+function formatDate(date) {
+  return date.toFormat(DATE_FORMAT);
+}
+
+function filterOnlyOrders(i, elem) {
+  // return cheerio(elem).children('td').eq(1).attr('class') !== 'th';
+  return i > 0;
+}
+
+function filterByTime(i, elem) {
+  try {
+    let dt_string = cheerio(elem).children('td').eq(2).text();
+    // dt = DateTime.fromFormat(dt_string, 'dd-LL HH:mm');
+    let hour = Number.parseInt(dt_string.split(' ')[1].split(':')[0]);
+
+    return hour > 7 && hour < 17;
+  } catch (e) {
+    return true;
+  }
+}
+
+function filterOrders(i, elem) {
+  return filterOnlyOrders(i, elem) && filterByTime(i, elem);
+}
+
+function getOrdersUpdates(settings, date = DateTime.local()) {
+  data = {
+    url: settings.orders_page,
+    qs: { 'date': formatDate(date) }
+  }
+  request.get(data, function (error, response, body) {
+    console.log('error:', error); // Print the error if one occurred
+    console.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
+    // console.log('body:', body); // Print the HTML for the Google homepage.
+    writeToFile(body, 'files/sched.html');
+
+    let $ = cheerio.load(body);
+    // selector = '#body > table:nth-child(2) > tbody > tr > td > table:nth-child(6) > tbody';
+    selector = '#body > table:nth-child(2) > tbody > tr > td > table:nth-child(6) > tbody';
+
+    $orders_tbody = $(selector);
+    $orders = $orders_tbody.children('tr');
+    console.log($orders.length);
+    $orders.filter(filterOrders).each(function(i, elem){
+      sendToTelegram(settings, renderOrderData($(elem)));
     });
 
-    api_token = doc.credentials.telegram_bot.api_token;
-    chat_id   = doc.credentials.telegram_bot.chat_id;
+    writeToFile($orders.html(), 'files/result.html');
 
-    for (let i of [1, 2, 3, 4, 5]) {
-      text      = `text ${i}`
-      url = `https://api.telegram.org/bot${api_token}/sendMessage?chat_id=${chat_id}&text=${text}`
-
-      request.post({
-        url: url
-      }, function(error, response, body) {
-        console.log('error:', error); // Print the error if one occurred
-        console.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
-      });
-    }
-    // if (error) {
-    //       console.log(error);
-    //   } else {
-    //       console.log(body, response.statusCode);
-    //       request(response.headers['location'], function(error, response, html) {
-    //           console.log(html);
-    //       });
-    //   }
   });
-
-} catch (e) {
-  console.log(e);
 }
+
+function renderOrderData(order) {
+  function getColumnText(row, colNum) {
+    return row.children('td').eq(colNum).text()
+  }
+
+  // 1, 3, 6, 7, 5, 2
+  let orderNumber = getColumnText(order, 1),
+    metro = getColumnText(order, 3),
+    address = getColumnText(order, 6),
+    client = getColumnText(order, 7),
+    problem = getColumnText(order, 5),
+    time = getColumnText(order, 2);
+
+  return `${orderNumber} ${metro} ${address} ${client} ${problem} ${time}`
+}
+
+function writeToFile(text, file_name) {
+  fs.writeFile(file_name, text, function(err) {
+    if(err) {
+      return console.log(err);
+    }
+    console.log("The file was saved!");
+  });
+}
+
+function sendToTelegram(settings, text) {
+  api_token = settings.credentials.telegram_bot.api_token;
+  chat_id   = settings.credentials.telegram_bot.chat_id;
+  cond = true
+
+  text = encodeURI(text);
+  url = `https://api.telegram.org/bot${api_token}/sendMessage?chat_id=${chat_id}&text=${text}`;
+
+  request.post({
+    url: url
+  }, function(error, response, body) {
+    console.log('error:', error); // Print the error if one occurred
+    console.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
+  });
+}
+
+run();
