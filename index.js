@@ -6,19 +6,15 @@ const { DateTime } = require('luxon');
 const cheerio = require('cheerio');
 const DATE_FORMAT = 'dd-LL-yyyy';
 
+// TODO: разнести по файлам
+// TODO: алгоритм поиска обновлений с запоминанием последней заявки на дату в файле
+// TODO: обработка разлогинивания раз в час
 function run() {
   let settings = readSettings();
 
   // TODO(khataev): kill task longer than threshold time
   if (settings) {
     logIn(settings, getUpdates)
-    // sendToTelegram(settings);
-    // let i = 1;
-    // while(true) {
-    //   console.log(i)
-    //   await Promise.all([sleep(5000)]);
-    //   i = i + 1;
-    // }
   }
 }
 
