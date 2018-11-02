@@ -9,6 +9,7 @@ const DATE_FORMAT = 'dd-LL-yyyy';
 const ORDERS_HISTORY_PATH = 'orders_history.yml';
 const ORDERS_HISTORY_DATE_FORMAT = 'dd-LL-yyyy';
 const FILE_ENCODING = 'utf-8';
+const LOG_FILE = 'files/protocol.log'
 // TODO: how to avoid global var?
 let global_history;
 let global_day_history;
@@ -70,10 +71,10 @@ function logIn(settings, callback) {
 }
 
 function getOrderUpdatesCallback(settings, orders, date) {
-  console.log(`new orders for ${date}: ${orders.length}`);
-  saveRawOrdersToHistory(global_history, orders, date);
+  console.log(`new orders for ${date.toFormat(DATE_FORMAT)}: ${orders.length}`);
   // send to telega
   sendOrdersToTelegram(settings, orders);
+  saveRawOrdersToHistory(global_history, orders, date);
 }
 
 async function getUpdates(settings) {
@@ -136,13 +137,14 @@ function getOrdersUpdates(settings, callback, date = DateTime.local()) {
     qs: { 'date': formatDate(date) }
   }
   request.get(data, function (error, response, body) {
-    console.log('error:', error); // Print the error if one occurred
-    console.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
     // console.log('body:', body); // Print the HTML for the Google homepage.
     // writeToFile(body, 'files/sched.html');
 
-    if (error)
+    if (error) {
+      console.log('error:', error); // Print the error if one occurred
+      console.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
       return null;
+    }
 
     let $ = cheerio.load(body);
     // selector = '#body > table:nth-child(2) > tbody > tr > td > table:nth-child(6) > tbody';
@@ -180,12 +182,19 @@ function renderOrderData(order) {
   return `${orderNumber} ${metro} ${address} ${client} ${problem} ${time}`
 }
 
+function log(text, console = true) {
+  if (console)
+    console.log(text);
+
+  writeToFile(text, LOG_FILE);
+}
+
 function writeToFile(text, file_name) {
   fs.writeFile(file_name, text, function(err) {
     if(err) {
       return console.log(err);
     }
-    console.log("The file was saved!");
+    console.log(`The file ${file_name} was saved!`);
   });
 }
 
@@ -195,19 +204,14 @@ function sendOrdersToTelegram(settings, orders) {
   });
 }
 
-// TODO: определение chat_id по имени канала
-function sendToTelegram(settings, text) {
-  let chat_id   = settings.credentials.telegram_bot.chat_id;
-
-  sendMessageToSubscriber(settings, chat_id, text);
-  sendMessageToSubscriber(settings, 280609443, text);
+function mapGetUpdatesElement(elem) {
+  conole.log(elem);
+  return elem['message']['chat']['id'];
 }
 
-function sendMessageToSubscriber(settings, chat_id, text) {
+function getBotSubscribers(settings) {
   let api_token = settings.credentials.telegram_bot.api_token;
-
-  let encoded_text = encodeURI(text);
-  let url = `https://api.telegram.org/bot${api_token}/sendMessage?chat_id=${chat_id}&text=${encoded_text}`;
+  let url = `https://api.telegram.org/bot${api_token}/getUpdates`;
 
   request.post({
     url: url
@@ -215,6 +219,43 @@ function sendMessageToSubscriber(settings, chat_id, text) {
     if (error) {
       console.log('error:', error); // Print the error if one occurred
       console.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
+      return [];
+    }
+    else {
+      let body_json = JSON.parse(body);
+      let subscribers = body_json['result'].map(mapGetUpdatesElement);
+      console.log(subscribers);
+      return new Set(subscribers); // make them unique
+    }
+  });
+}
+
+// TODO: определение chat_id по имени канала
+function sendToTelegram(settings, text) {
+  let chat_id   = settings.credentials.telegram_bot.chat_id;
+
+  // let subscribers = getBotSubscribers(settings);
+  let subscribers = [chat_id, 280609443, 253850760];
+
+  subscribers.forEach(function(chat_id){
+    sendMessageToSubscriber(settings, chat_id, text);
+    // sendMessageToSubscriber(settings, 280609443, text);
+    // sendMessageToSubscriber(settings, 253850760, text);
+  });
+}
+
+function sendMessageToSubscriber(settings, chat_id, text) {
+  let api_token = settings.credentials.telegram_bot.api_token;
+
+  let encoded_text = encodeURI(text);
+  let url = `https://api.telegram.org/bot${api_token}/sendMessage?chat_id=${chat_id}&text=${encoded_text}`;
+  console.log(`sendMessageToSubscriber. chat_id: ${chat_id}, text: ${text}`);
+  request.post({
+    url: url
+  }, function(error, response, body) {
+    if (error) {
+      console.log('sendMessageToSubscriber. error:', error); // Print the error if one occurred
+      console.log('sendMessageToSubscriber. statusCode:', response && response.statusCode); // Print the response status code if a response was received
     }
   });
 }
@@ -285,6 +326,17 @@ function getOrdersHistory(date = DateTime.local()) {
   return global_history[date.toFormat(ORDERS_HISTORY_DATE_FORMAT)] || [];
 }
 
+function test_run() {
+  let settings = readSettings();
+
+  if (settings) {
+
+    getBotSubscribers(settings);
+  }
+}
+
 run();
 // history = getOrdersHistory();
 // saveOrdersToHistory(history, [1,2]);
+
+// test_run();
