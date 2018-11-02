@@ -4,11 +4,23 @@ let request = requestGlobal.defaults({jar: true});
 const fs = require('fs');
 const { DateTime } = require('luxon');
 const cheerio = require('cheerio');
+// const test = require('./file');
 const DATE_FORMAT = 'dd-LL-yyyy';
+const ORDERS_HISTORY_PATH = 'orders_history.yml';
+const ORDERS_HISTORY_DATE_FORMAT = 'dd-LL-yyyy';
+const FILE_ENCODING = 'utf-8';
+// TODO: how to avoid global var?
+let global_history;
+let global_day_history;
+// TODO: create orders history file if not exists
+
+// TODO: $ intead of cheerio
+// console.log(test(5));
 
 // TODO: разнести по файлам
-// TODO: алгоритм поиска обновлений с запоминанием последней заявки на дату в файле
 // TODO: обработка разлогинивания раз в час
+// TODO: конпка (url) забрать заказ
+// TODO: фильтр по статусу заказа
 function run() {
   let settings = readSettings();
 
@@ -25,7 +37,7 @@ async function sleep(ms) {
 function readSettings() {
   let settings;
   try {
-    settings = yaml.safeLoad(fs.readFileSync('settings.yml', 'utf8'));
+    settings = yaml.safeLoad(fs.readFileSync('settings.yml', FILE_ENCODING));
   } catch (e) {
     console.log(e);
   }
@@ -57,14 +69,22 @@ function logIn(settings, callback) {
   });
 }
 
+function getOrderUpdatesCallback(settings, orders, date) {
+  console.log(`new orders for ${date}: ${orders.length}`);
+  saveRawOrdersToHistory(global_history, orders, date);
+  // send to telega
+  sendOrdersToTelegram(settings, orders);
+}
+
 async function getUpdates(settings) {
   update_interval = settings.update_interval * 1000;
   tomorrow = DateTime.local().plus({ days: 1 });
   while(true) {
     dt_string = DateTime.local().toISO();
     console.log(`getting updates at ${dt_string}`);
-    getOrdersUpdates(settings);
-    getOrdersUpdates(settings, tomorrow);
+    getOrdersUpdates(settings, getOrderUpdatesCallback);
+    getOrdersUpdates(settings, getOrderUpdatesCallback, tomorrow);
+
     await Promise.all([sleep(update_interval)]);
   }
 }
@@ -74,10 +94,12 @@ function formatDate(date) {
 }
 
 function filterOnlyOrders(i, elem) {
+  // console.log(`filterOnlyOrders: ${cheerio(elem).children('td').eq(1).text()}; result: ${i > 0}`);
   // return cheerio(elem).children('td').eq(1).attr('class') !== 'th';
   return i > 0;
 }
 
+// TODO: вынести в настройки границы интервала
 function filterByTime(i, elem) {
   try {
     let dt_string = cheerio(elem).children('td').eq(2).text();
@@ -95,11 +117,20 @@ function filterByStatus(i, elem) {
   return true;
 }
 
-function filterOrders(i, elem) {
-  return filterOnlyOrders(i, elem) && filterByTime(i, elem) && filterByStatus(i, elem);
+function filterByHistory(i, elem) {
+  let order_number = cheerio(elem).children('td').eq(1).text();
+  // console.log(`filterByHistory: ${order_number}`);
+  return !global_day_history.includes(order_number);
 }
 
-function getOrdersUpdates(settings, date = DateTime.local()) {
+function filterOrders(i, elem) {
+  return filterOnlyOrders(i, elem) &&
+    filterByTime(i, elem) &&
+    filterByStatus(i, elem) &&
+    filterByHistory(i, elem);
+}
+
+function getOrdersUpdates(settings, callback, date = DateTime.local()) {
   data = {
     url: settings.orders_page,
     qs: { 'date': formatDate(date) }
@@ -108,7 +139,10 @@ function getOrdersUpdates(settings, date = DateTime.local()) {
     console.log('error:', error); // Print the error if one occurred
     console.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
     // console.log('body:', body); // Print the HTML for the Google homepage.
-    writeToFile(body, 'files/sched.html');
+    // writeToFile(body, 'files/sched.html');
+
+    if (error)
+      return null;
 
     let $ = cheerio.load(body);
     // selector = '#body > table:nth-child(2) > tbody > tr > td > table:nth-child(6) > tbody';
@@ -116,13 +150,17 @@ function getOrdersUpdates(settings, date = DateTime.local()) {
 
     $orders_tbody = $(selector);
     $orders = $orders_tbody.children('tr');
-    console.log($orders.length);
-    $orders.filter(filterOrders).each(function(i, elem){
-      sendToTelegram(settings, renderOrderData($(elem)));
-    });
+    global_day_history = getOrdersHistory(date);
+    $orders = $orders.filter(filterOrders)
+    // $orders.filter(filterOrders).each(function(i, elem){
+    //   // console.log($(elem).text());
+    //   // sendToTelegram(settings, renderOrderData($(elem)));
+    // });
 
-    writeToFile($orders.html(), 'files/result.html');
 
+    // writeToFile($orders.html(), 'files/result.html');
+
+    callback(settings, $orders, date);
   });
 }
 
@@ -151,14 +189,25 @@ function writeToFile(text, file_name) {
   });
 }
 
+function sendOrdersToTelegram(settings, orders) {
+  orders.each(function(i, elem) {
+    sendToTelegram(settings, renderOrderData(cheerio(elem)));
+  });
+}
+
 // TODO: определение chat_id по имени канала
 function sendToTelegram(settings, text) {
-  api_token = settings.credentials.telegram_bot.api_token;
-  chat_id   = settings.credentials.telegram_bot.chat_id;
-  cond = true
+  let chat_id   = settings.credentials.telegram_bot.chat_id;
 
-  text = encodeURI(text);
-  url = `https://api.telegram.org/bot${api_token}/sendMessage?chat_id=${chat_id}&text=${text}`;
+  sendMessageToSubscriber(settings, chat_id, text);
+  sendMessageToSubscriber(settings, 280609443, text);
+}
+
+function sendMessageToSubscriber(settings, chat_id, text) {
+  let api_token = settings.credentials.telegram_bot.api_token;
+
+  let encoded_text = encodeURI(text);
+  let url = `https://api.telegram.org/bot${api_token}/sendMessage?chat_id=${chat_id}&text=${encoded_text}`;
 
   request.post({
     url: url
@@ -170,4 +219,72 @@ function sendToTelegram(settings, text) {
   });
 }
 
+function saveRawOrdersToHistory(history, orders, date = DateTime.local()) {
+  // console.log(`saveRawOrdersToHistory: ${orders.text()}`);
+  let result = cheerio(orders).map(function(i, elem) {
+    // console.log(cheerio(elem).children('td').eq(1).text());
+    return cheerio(elem).children('td').eq(1).text();
+  });
+
+  // console.log('saveRawOrdersToHistory result1');
+  // console.log(Array.from(result));
+  // console.log('saveRawOrdersToHistory result2');
+  // return Array.from(result);
+  saveOrdersToHistory(history, Array.from(result), date);
+}
+
+function saveOrdersToHistory(history, orders, date = DateTime.local()) {
+  key = date.toFormat(ORDERS_HISTORY_DATE_FORMAT);
+  if (!history[key]) {
+    history[key] = orders
+  }
+  else {
+    history[key] = Array.from(new Set(history[key].concat(orders)));
+  }
+  history = deleteOldHistory(history);
+  writeHistory(history);
+}
+
+function writeHistory(history) {
+  try {
+    yaml_contents = yaml.safeDump(history);
+    fs.writeFileSync(ORDERS_HISTORY_PATH, yaml_contents, function(error) {
+      if (error)  {
+        console.log('writeHistory error');
+        console.log(error);
+      }
+    })
+  } catch (e) {
+    console.log('writeHistory error');
+    console.log(e);
+  }
+}
+
+function deleteOldHistory(history, cutoff_date = DateTime.local()) {
+  result = {};
+  for (pair of Object.entries(history)) {
+    cutoff_date_start = cutoff_date.startOf('day');
+    dt = DateTime.fromFormat(pair[0], ORDERS_HISTORY_DATE_FORMAT).startOf('day');
+    if (dt >= cutoff_date_start)
+    {
+      result[pair[0]] = pair[1];
+    }
+  }
+  return result;
+}
+
+function getOrdersHistory(date = DateTime.local()) {
+  try {
+    if (!global_history)
+      global_history = yaml.safeLoad(fs.readFileSync(ORDERS_HISTORY_PATH, FILE_ENCODING)) || {};
+  } catch (e) {
+    console.log('getOrdersHistory error');
+    console.log(e);
+  }
+// console.log((history || {})[date.toFormat(ORDERS_HISTORY_DATE_FORMAT)] || []);
+  return global_history[date.toFormat(ORDERS_HISTORY_DATE_FORMAT)] || [];
+}
+
 run();
+// history = getOrdersHistory();
+// saveOrdersToHistory(history, [1,2]);
