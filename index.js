@@ -9,14 +9,14 @@ const DATE_FORMAT = 'dd-LL-yyyy';
 const ORDERS_HISTORY_PATH = 'orders_history.yml';
 const ORDERS_HISTORY_DATE_FORMAT = 'dd-LL-yyyy';
 const FILE_ENCODING = 'utf-8';
-const LOG_FILE = 'files/protocol.log'
+const LOG_FILE = 'files/protocol.log';
 // TODO: how to avoid global var?
 let global_history;
 let global_day_history;
 // TODO: create orders history file if not exists
 
 // TODO: $ intead of cheerio
-// console.log(test(5));
+// log(test(5));
 
 // TODO: разнести по файлам
 // TODO: обработка разлогинивания раз в час
@@ -40,7 +40,7 @@ function readSettings() {
   try {
     settings = yaml.safeLoad(fs.readFileSync('settings.yml', FILE_ENCODING));
   } catch (e) {
-    console.log(e);
+    log(e);
   }
 
   return settings;
@@ -61,9 +61,9 @@ function logIn(settings, callback) {
   };
 
   request.post(data, function (error, response, body) {
-    console.log('error:', error); // Print the error if one occurred
-    console.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
-    // console.log('body:', body); // Print the HTML for the Google homepage.
+    log('error:', error); // Print the error if one occurred
+    log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
+    // log('body:', body); // Print the HTML for the Google homepage.
     writeToFile(body, 'files/login.html');
 
     callback(settings);
@@ -71,7 +71,7 @@ function logIn(settings, callback) {
 }
 
 function getOrderUpdatesCallback(settings, orders, date) {
-  console.log(`new orders for ${date.toFormat(DATE_FORMAT)}: ${orders.length}`);
+  log(`new orders for ${date.toFormat(DATE_FORMAT)}: ${orders.length}`);
   // send to telega
   sendOrdersToTelegram(settings, orders);
   saveRawOrdersToHistory(global_history, orders, date);
@@ -82,7 +82,7 @@ async function getUpdates(settings) {
   tomorrow = DateTime.local().plus({ days: 1 });
   while(true) {
     dt_string = DateTime.local().toISO();
-    console.log(`getting updates at ${dt_string}`);
+    log(`getting updates at ${dt_string}`);
     getOrdersUpdates(settings, getOrderUpdatesCallback);
     getOrdersUpdates(settings, getOrderUpdatesCallback, tomorrow);
 
@@ -95,7 +95,7 @@ function formatDate(date) {
 }
 
 function filterOnlyOrders(i, elem) {
-  // console.log(`filterOnlyOrders: ${cheerio(elem).children('td').eq(1).text()}; result: ${i > 0}`);
+  // log(`filterOnlyOrders: ${cheerio(elem).children('td').eq(1).text()}; result: ${i > 0}`);
   // return cheerio(elem).children('td').eq(1).attr('class') !== 'th';
   return i > 0;
 }
@@ -120,7 +120,7 @@ function filterByStatus(i, elem) {
 
 function filterByHistory(i, elem) {
   let order_number = cheerio(elem).children('td').eq(1).text();
-  // console.log(`filterByHistory: ${order_number}`);
+  // log(`filterByHistory: ${order_number}`);
   return !global_day_history.includes(order_number);
 }
 
@@ -137,12 +137,12 @@ function getOrdersUpdates(settings, callback, date = DateTime.local()) {
     qs: { 'date': formatDate(date) }
   }
   request.get(data, function (error, response, body) {
-    // console.log('body:', body); // Print the HTML for the Google homepage.
+    // log('body:', body); // Print the HTML for the Google homepage.
     // writeToFile(body, 'files/sched.html');
 
     if (error) {
-      console.log('error:', error); // Print the error if one occurred
-      console.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
+      log('error:', error); // Print the error if one occurred
+      log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
       return null;
     }
 
@@ -155,7 +155,7 @@ function getOrdersUpdates(settings, callback, date = DateTime.local()) {
     global_day_history = getOrdersHistory(date);
     $orders = $orders.filter(filterOrders)
     // $orders.filter(filterOrders).each(function(i, elem){
-    //   // console.log($(elem).text());
+    //   // log($(elem).text());
     //   // sendToTelegram(settings, renderOrderData($(elem)));
     // });
 
@@ -182,19 +182,32 @@ function renderOrderData(order) {
   return `${orderNumber} ${metro} ${address} ${client} ${problem} ${time}`
 }
 
-function log(text, console = true) {
-  if (console)
+function log(text, write_to_console = true) {
+  if (write_to_console)
     console.log(text);
 
-  writeToFile(text, LOG_FILE);
+  appendToFile(text, LOG_FILE);
 }
 
 function writeToFile(text, file_name) {
   fs.writeFile(file_name, text, function(err) {
     if(err) {
-      return console.log(err);
+      console.log(err);
     }
-    console.log(`The file ${file_name} was saved!`);
+    else {
+      console.log(`The file ${file_name} was saved!`);
+    }
+  });
+}
+
+function appendToFile(text, file_name) {
+  fs.appendFile(file_name, `${DateTime.local().toISO()}: ${text} \n`, function(err) {
+    if(err) {
+      console.log(err);
+    }
+    else {
+      // console.log(`The file ${file_name} was saved!`);
+    }
   });
 }
 
@@ -205,7 +218,6 @@ function sendOrdersToTelegram(settings, orders) {
 }
 
 function mapGetUpdatesElement(elem) {
-  conole.log(elem);
   return elem['message']['chat']['id'];
 }
 
@@ -217,14 +229,14 @@ function getBotSubscribers(settings) {
     url: url
   }, function(error, response, body) {
     if (error) {
-      console.log('error:', error); // Print the error if one occurred
-      console.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
+      log('error:', error); // Print the error if one occurred
+      log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
       return [];
     }
     else {
       let body_json = JSON.parse(body);
       let subscribers = body_json['result'].map(mapGetUpdatesElement);
-      console.log(subscribers);
+      log(subscribers);
       return new Set(subscribers); // make them unique
     }
   });
@@ -249,27 +261,27 @@ function sendMessageToSubscriber(settings, chat_id, text) {
 
   let encoded_text = encodeURI(text);
   let url = `https://api.telegram.org/bot${api_token}/sendMessage?chat_id=${chat_id}&text=${encoded_text}`;
-  console.log(`sendMessageToSubscriber. chat_id: ${chat_id}, text: ${text}`);
+  log(`sendMessageToSubscriber. chat_id: ${chat_id}, text: ${text}`);
   request.post({
     url: url
   }, function(error, response, body) {
     if (error) {
-      console.log('sendMessageToSubscriber. error:', error); // Print the error if one occurred
-      console.log('sendMessageToSubscriber. statusCode:', response && response.statusCode); // Print the response status code if a response was received
+      log('sendMessageToSubscriber. error:', error); // Print the error if one occurred
+      log('sendMessageToSubscriber. statusCode:', response && response.statusCode); // Print the response status code if a response was received
     }
   });
 }
 
 function saveRawOrdersToHistory(history, orders, date = DateTime.local()) {
-  // console.log(`saveRawOrdersToHistory: ${orders.text()}`);
+  // log(`saveRawOrdersToHistory: ${orders.text()}`);
   let result = cheerio(orders).map(function(i, elem) {
-    // console.log(cheerio(elem).children('td').eq(1).text());
+    // log(cheerio(elem).children('td').eq(1).text());
     return cheerio(elem).children('td').eq(1).text();
   });
 
-  // console.log('saveRawOrdersToHistory result1');
-  // console.log(Array.from(result));
-  // console.log('saveRawOrdersToHistory result2');
+  // log('saveRawOrdersToHistory result1');
+  // log(Array.from(result));
+  // log('saveRawOrdersToHistory result2');
   // return Array.from(result);
   saveOrdersToHistory(history, Array.from(result), date);
 }
@@ -291,13 +303,13 @@ function writeHistory(history) {
     yaml_contents = yaml.safeDump(history);
     fs.writeFileSync(ORDERS_HISTORY_PATH, yaml_contents, function(error) {
       if (error)  {
-        console.log('writeHistory error');
-        console.log(error);
+        log('writeHistory error');
+        log(error);
       }
     })
   } catch (e) {
-    console.log('writeHistory error');
-    console.log(e);
+    log('writeHistory error');
+    log(e);
   }
 }
 
@@ -319,10 +331,10 @@ function getOrdersHistory(date = DateTime.local()) {
     if (!global_history)
       global_history = yaml.safeLoad(fs.readFileSync(ORDERS_HISTORY_PATH, FILE_ENCODING)) || {};
   } catch (e) {
-    console.log('getOrdersHistory error');
-    console.log(e);
+    log('getOrdersHistory error');
+    log(e);
   }
-// console.log((history || {})[date.toFormat(ORDERS_HISTORY_DATE_FORMAT)] || []);
+// log((history || {})[date.toFormat(ORDERS_HISTORY_DATE_FORMAT)] || []);
   return global_history[date.toFormat(ORDERS_HISTORY_DATE_FORMAT)] || [];
 }
 
