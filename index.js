@@ -19,8 +19,7 @@ let global_day_history;
 // log(test(5));
 
 // TODO: разнести по файлам
-// TODO: обработка разлогинивания раз в час
-// TODO: конпка (url) забрать заказ
+// TODO: обработка разлогинивания раз в час ??
 // TODO: фильтр по статусу заказа
 function run() {
   let settings = readSettings();
@@ -71,17 +70,17 @@ function logIn(settings, callback) {
 }
 
 function getOrderUpdatesCallback(settings, orders, date) {
-  log(`new orders for ${date.toFormat(DATE_FORMAT)}: ${orders.length}`);
+  log(`new orders for ${date.toFormat(DATE_FORMAT)} (${orders.length})`);
   // send to telega
-  sendOrdersToTelegram(settings, orders);
+  sendOrdersToTelegram(settings, orders, date);
   saveRawOrdersToHistory(global_history, orders, date);
 }
 
 async function startUpdatesPolling(settings) {
-  update_interval = settings.update_interval * 1000;
-  tomorrow = DateTime.local().plus({ days: 1 });
+  let update_interval = settings.update_interval * 1000;
+  let tomorrow = DateTime.local().plus({ days: 1 });
   while(true) {
-    dt_string = DateTime.local().toISO();
+    let dt_string = DateTime.local().toISO();
     log(`getting updates at ${dt_string}`);
     getOrdersUpdates(settings, getOrderUpdatesCallback);
     getOrdersUpdates(settings, getOrderUpdatesCallback, tomorrow);
@@ -104,8 +103,8 @@ function filterByTime(i, elem) {
     let dt_string = cheerio(elem).children('td').eq(2).text();
     // dt = DateTime.fromFormat(dt_string, 'dd-LL HH:mm');
     let hour = Number.parseInt(dt_string.split(' ')[1].split(':')[0]);
-
-    return hour > 7 && hour < 23;
+    // TODO: move borders to settings
+    return hour >= 7 && hour < 23;
   } catch (e) {
     return true;
   }
@@ -154,11 +153,11 @@ function getOrdersUpdates(settings, callback, date = DateTime.local()) {
   });
 }
 
-function renderOrderData(order) {
-  function getColumnText(row, colNum) {
-    return row.children('td').eq(colNum).text()
-  }
+function getColumnText(row, colNum) {
+  return row.children('td').eq(colNum).text()
+}
 
+function renderOrderData(order) {
   // 1, 3, 6, 7, 5, 2
   let orderNumber = getColumnText(order, 1),
     metro = getColumnText(order, 3),
@@ -167,7 +166,19 @@ function renderOrderData(order) {
     problem = getColumnText(order, 5),
     time = getColumnText(order, 2);
 
-  return `${orderNumber} ${metro} ${address} ${client} ${problem} ${time}`
+  return `м. ${metro}, ${address}; ${client}; ${problem}, ${time}, ${orderNumber}`
+}
+
+function seizeOrderUrl(orderNumber) {
+  return (`http://ultima.uk.to/sched.php?id=${orderNumber}`);
+}
+
+function getReplyMarkup(orderNumber) {
+  return reply_markup = {
+    inline_keyboard: [
+      [{ text: 'Забрать заказ', url: seizeOrderUrl(orderNumber)}]
+    ]
+  };
 }
 
 function log(text, write_to_console = true) {
@@ -199,9 +210,11 @@ function appendToFile(text, file_name) {
   });
 }
 
-function sendOrdersToTelegram(settings, orders) {
+function sendOrdersToTelegram(settings, orders, date = DateTime.local()) {
   orders.each(function(i, elem) {
-    sendToTelegram(settings, renderOrderData(cheerio(elem)));
+    let orderNumber = getColumnText(cheerio(elem), 1);
+    let replyMarkup = getReplyMarkup(orderNumber);
+    sendToTelegram(settings, renderOrderData(cheerio(elem)), replyMarkup, date);
   });
 }
 
@@ -223,7 +236,8 @@ function getBotSubscribers(settings) {
       }
       else {
         let body_json = JSON.parse(body);
-        let subscribers = body_json['result'].map(mapGetUpdatesElement);
+        let result = body_json['result'];
+        let subscribers = result == undefined ? [] : body_json['result'].map(mapGetUpdatesElement);
         let uniqueSubscribers = new Set(subscribers); // make them unique
         resolve(uniqueSubscribers);
       }
@@ -233,17 +247,27 @@ function getBotSubscribers(settings) {
   return promise;
 }
 
-// TODO: определение chat_id по имени канала
-function sendToTelegram(settings, text) {
-  let chat_id   = settings.credentials.telegram_bot.chat_id;
+function sendToTelegram(settings, text, replyMarkup, date = DateTime.local()) {
+  let settings_chat_id = settings.credentials.telegram_bot.chat_id;
 
-  getBotSubscribers(settings)
-    .then(subscribers => {
-      console.log('sendToTelegram. Subscribers:', subscribers);
-      subscribers.forEach(function(chat_id){
-        sendMessageToSubscriber(settings, chat_id, text);
+  if (settings_chat_id) {
+    console.log('sendToTelegram. Subscribers:', settings_chat_id);
+    sendMessageToSubscriber(settings, settings_chat_id, text, replyMarkup, date);
+  }
+  else {
+    getBotSubscribers(settings)
+      .then(subscribers => {
+        if (subscribers == undefined || subscribers.length == 0) {
+          log('no subscribers, message would not be sent');
+        }
+        else {
+          subscribers.forEach(function (chat_id) {
+            console.log('sendToTelegram. Subscribers:', subscribers);
+            sendMessageToSubscriber(settings, chat_id, text, replyMarkup, date);
+          });
+        }
       });
-    });
+  }
 
   // let subscribers = [chat_id, 280609443, 253850760];
   //
@@ -254,12 +278,20 @@ function sendToTelegram(settings, text) {
   // });
 }
 
-function sendMessageToSubscriber(settings, chat_id, text) {
-  let api_token = settings.credentials.telegram_bot.api_token;
+function sendMessageToSubscriber(settings, chat_id, text, reply_markup_object, date) {
+  let api_token = isToday(date) ?
+    settings.credentials.telegram_bot.today.api_token :
+    settings.credentials.telegram_bot.tomorrow.api_token;
+
+  settings.credentials.telegram_bot.api_token;
 
   let encoded_text = encodeURI(text);
-  let url = `https://api.telegram.org/bot${api_token}/sendMessage?chat_id=${chat_id}&text=${encoded_text}`;
+  let encoded_reply_markup = encodeURI(JSON.stringify(reply_markup_object));
+  let url = `https://api.telegram.org/bot${api_token}/sendMessage?chat_id=${chat_id}&text=${encoded_text}&reply_markup=${encoded_reply_markup}`;
+  // let url = `https://api.telegram.org/bot${api_token}/sendMessage?chat_id=${chat_id}&text=${encoded_text}`;
+  log(`sendMessage url: ${url}`);
   log(`sendMessageToSubscriber. chat_id: ${chat_id}, text: ${text}`);
+  // TODO parameters as hash
   request.post({
     url: url
   }, function(error, response, body) {
@@ -329,12 +361,26 @@ function getOrdersHistory(date = DateTime.local()) {
   return global_history[date.toFormat(ORDERS_HISTORY_DATE_FORMAT)] || [];
 }
 
-function test_run() {
-  let settings = readSettings();
+function isToday(date) {
+  let today = DateTime.local();
+  // TODO: why .startOf('day') does not work?
 
-  if (settings) {
-    getBotSubscribers(settings).then(response => console.log('Subscribers: ', response));
-  }
+  return date &&
+    today.year == date.year &&
+    today.month == date.month &&
+    today.day == date.day;
+}
+
+function test_run() {
+  // let settings = readSettings();
+  //
+  // if (settings) {
+  //   getBotSubscribers(settings).then(response => console.log('Subscribers: ', response));
+  // }
+
+  let dt = DateTime.fromFormat('2018-11-04', 'yyyy-LL-dd');
+  console.log(isToday(dt));
+
 }
 
 run();
