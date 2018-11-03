@@ -285,7 +285,7 @@ function sendMessageToSubscriber(settings, chat_id, text, reply_markup_object, d
 
   settings.credentials.telegram_bot.api_token;
 
-  let encoded_text = encodeURI(text);
+  let encoded_text = encodeURI(sanitizeText(text));
   let encoded_reply_markup = encodeURI(JSON.stringify(reply_markup_object));
   let url = `https://api.telegram.org/bot${api_token}/sendMessage?chat_id=${chat_id}&text=${encoded_text}&reply_markup=${encoded_reply_markup}`;
   // let url = `https://api.telegram.org/bot${api_token}/sendMessage?chat_id=${chat_id}&text=${encoded_text}`;
@@ -371,6 +371,12 @@ function isToday(date) {
     today.day == date.day;
 }
 
+function sanitizeText(text) {
+  return text
+    .replace(/[\n\r]+/g, '')
+    .replace(/\s{2,10}/g, ' ');
+}
+
 function test_run() {
   // let settings = readSettings();
   //
@@ -378,13 +384,17 @@ function test_run() {
   //   getBotSubscribers(settings).then(response => console.log('Subscribers: ', response));
   // }
 
-  let dt = DateTime.fromFormat('2018-11-04', 'yyyy-LL-dd');
-  console.log(isToday(dt));
+  // let dt = DateTime.fromFormat('2018-11-04', 'yyyy-LL-dd');
+  // console.log(isToday(dt));
+
+  // let text = '1   2 \n 44   5 \n ';
+  // console.log(text);
+  // console.log(sanitizeText(text));
 
 }
 
-run();
+// run();
 // history = getOrdersHistory();
 // saveOrdersToHistory(history, [1,2]);
 
-// test_run();
+test_run();
