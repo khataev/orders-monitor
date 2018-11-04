@@ -1,11 +1,21 @@
 orders_page: http://example.com
 # in seconds
-update_interval: 10
+update_interval: 60
+# boundaries included
+orders_filter:
+  from_hour: 8
+  to_hour: 22
 credentials:
   personal_cabinet:
      url: https://passport.yandex.ru/passport
      login:
      password:
   telegram_bot:
-    api_token: 525357957:AADSOBXHRjItSJYOJ7k57ptFdv-92pHJBjo
-    chat_id: 12312432423
+    # in milliseconds
+    delay_between_requests: 40
+    today:
+      api_token: 525357957:AADSOBXHRjItSJYOJ7k57ptFdv-92pHJBjo
+    tomorrow:
+      api_token: 525357957:AADSOBXHRjItSJYOJ7k57ptFdv-92pHJBjo
+    chat_ids:
+      - 12312432423
