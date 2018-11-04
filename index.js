@@ -4,16 +4,15 @@ let request = requestGlobal.defaults({jar: true});
 const fs = require('fs');
 const { DateTime } = require('luxon');
 const cheerio = require('cheerio');
-// const test = require('./file');
-const DATE_FORMAT = 'dd-LL-yyyy';
-const ORDERS_HISTORY_PATH = 'orders_history.yml';
-const ORDERS_HISTORY_DATE_FORMAT = 'dd-LL-yyyy';
-const FILE_ENCODING = 'utf-8';
-const LOG_FILE = 'files/protocol.log';
+// local files
+const config = require('./modules/constants');
+const logger = require('./modules/logger');
+const settingsManager = require('./modules/settings');
+
+// TODO: sanitize text in protocol too
 // TODO: how to avoid global var?
 let global_history;
 let global_day_history;
-// TODO: create orders history file if not exists
 
 // TODO: $ instead of cheerio
 // log(test(5));
@@ -22,7 +21,7 @@ let global_day_history;
 // TODO: обработка разлогинивания раз в час ??
 // TODO: фильтр по статусу заказа
 function run() {
-  let settings = readSettings();
+  let settings = new settingsManager(logger, config).readSettings();
 
   // TODO(khataev): kill task longer than threshold time
   if (settings) {
@@ -32,17 +31,6 @@ function run() {
 
 async function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-function readSettings() {
-  let settings;
-  try {
-    settings = yaml.safeLoad(fs.readFileSync('settings.yml', FILE_ENCODING));
-  } catch (e) {
-    log(e);
-  }
-
-  return settings;
 }
 
 function logIn(settings, callback) {
@@ -60,17 +48,17 @@ function logIn(settings, callback) {
   };
 
   request.post(data, function (error, response, body) {
-    log('error:', error); // Print the error if one occurred
-    log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
-    // log('body:', body); // Print the HTML for the Google homepage.
-    writeToFile(body, 'files/login.html');
+    logger.log('error:', error); // Print the error if one occurred
+    logger.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
+    // logger.log('body:', body); // Print the HTML for the Google homepage.
+    logger.writeToFile(body, 'log/login.html');
 
     callback(settings);
   });
 }
 
 function getOrderUpdatesCallback(settings, orders, date) {
-  log(`new orders for ${date.toFormat(DATE_FORMAT)} (${orders.length})`);
+  logger.log(`new orders for ${date.toFormat(config.DATE_FORMAT)} (${orders.length})`);
   // send to telega
   sendOrdersToTelegram(settings, orders, date);
   saveRawOrdersToHistory(global_history, orders, date);
@@ -81,7 +69,7 @@ async function startUpdatesPolling(settings) {
   let tomorrow = DateTime.local().plus({ days: 1 });
   while(true) {
     let dt_string = DateTime.local().toISO();
-    log(`getting updates at ${dt_string}`);
+    logger.log(`getting updates at ${dt_string}`);
     getOrdersUpdates(settings, getOrderUpdatesCallback);
     getOrdersUpdates(settings, getOrderUpdatesCallback, tomorrow);
 
@@ -90,7 +78,7 @@ async function startUpdatesPolling(settings) {
 }
 
 function formatDate(date) {
-  return date.toFormat(DATE_FORMAT);
+  return date.toFormat(config.DATE_FORMAT);
 }
 
 function filterOnlyOrders(i, elem) {
@@ -135,8 +123,8 @@ function getOrdersUpdates(settings, callback, date = DateTime.local()) {
   };
   request.get(data, function (error, response, body) {
     if (error) {
-      log('error:', error); // Print the error if one occurred
-      log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
+      logger.log('error:', error); // Print the error if one occurred
+      logger.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
       return null;
     }
 
@@ -181,35 +169,6 @@ function getReplyMarkup(orderNumber) {
   };
 }
 
-function log(text, write_to_console = true) {
-  if (write_to_console)
-    console.log(text);
-
-  appendToFile(text, LOG_FILE);
-}
-
-function writeToFile(text, file_name) {
-  fs.writeFile(file_name, text, function(err) {
-    if(err) {
-      console.log(err);
-    }
-    else {
-      console.log(`The file ${file_name} was saved!`);
-    }
-  });
-}
-
-function appendToFile(text, file_name) {
-  fs.appendFile(file_name, `${DateTime.local().toISO()}: ${text} \n`, function(err) {
-    if(err) {
-      console.log(err);
-    }
-    else {
-      // console.log(`The file ${file_name} was saved!`);
-    }
-  });
-}
-
 function sendOrdersToTelegram(settings, orders, date = DateTime.local()) {
   orders.each(function(i, elem) {
     let orderNumber = getColumnText(cheerio(elem), 1);
@@ -230,8 +189,8 @@ function getBotSubscribers(settings) {
     let params = { url: url };
     request.post(params, function (error, response, body) {
       if (error) {
-        log('error:', error); // Print the error if one occurred
-        log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
+        logger.log('error:', error); // Print the error if one occurred
+        logger.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
         reject(error);
       }
       else {
@@ -258,7 +217,7 @@ function sendToTelegram(settings, text, replyMarkup, date = DateTime.local()) {
     getBotSubscribers(settings)
       .then(subscribers => {
         if (subscribers == undefined || subscribers.length == 0) {
-          log('no subscribers, message would not be sent');
+          logger.log('no subscribers, message would not be sent');
         }
         else {
           subscribers.forEach(function (chat_id) {
@@ -285,33 +244,34 @@ function sendMessageToSubscriber(settings, chat_id, text, reply_markup_object, d
 
   settings.credentials.telegram_bot.api_token;
 
-  let encoded_text = encodeURI(sanitizeText(text));
+  let sanitized_text = sanitizeText(text);
+  let encoded_text = encodeURI(sanitized_text);
   let encoded_reply_markup = encodeURI(JSON.stringify(reply_markup_object));
   let url = `https://api.telegram.org/bot${api_token}/sendMessage?chat_id=${chat_id}&text=${encoded_text}&reply_markup=${encoded_reply_markup}`;
   // let url = `https://api.telegram.org/bot${api_token}/sendMessage?chat_id=${chat_id}&text=${encoded_text}`;
-  log(`sendMessage url: ${url}`);
-  log(`sendMessageToSubscriber. chat_id: ${chat_id}, text: ${text}`);
+  logger.log(`sendMessage url: ${url}`);
+  logger.log(`sendMessageToSubscriber. chat_id: ${chat_id}, text: ${sanitized_text}`);
   // TODO parameters as hash
   request.post({
     url: url
   }, function(error, response, body) {
     if (error) {
-      log('sendMessageToSubscriber. error:', error); // Print the error if one occurred
-      log('sendMessageToSubscriber. statusCode:', response && response.statusCode); // Print the response status code if a response was received
+      logger.log('sendMessageToSubscriber. error:', error); // Print the error if one occurred
+      logger.log('sendMessageToSubscriber. statusCode:', response && response.statusCode); // Print the response status code if a response was received
     }
   });
 }
 
 function saveRawOrdersToHistory(history, orders, date = DateTime.local()) {
   let result = cheerio(orders).map(function(i, elem) {
-    // log(cheerio(elem).children('td').eq(1).text());
+    // logger.log(cheerio(elem).children('td').eq(1).text());
     return cheerio(elem).children('td').eq(1).text();
   });
   saveOrdersToHistory(history, Array.from(result), date);
 }
 
 function saveOrdersToHistory(history, orders, date = DateTime.local()) {
-  key = date.toFormat(ORDERS_HISTORY_DATE_FORMAT);
+  key = date.toFormat(config.ORDERS_HISTORY_DATE_FORMAT);
   if (!history[key]) {
     history[key] = orders
   }
@@ -325,15 +285,15 @@ function saveOrdersToHistory(history, orders, date = DateTime.local()) {
 function writeHistory(history) {
   try {
     yaml_contents = yaml.safeDump(history);
-    fs.writeFileSync(ORDERS_HISTORY_PATH, yaml_contents, function(error) {
+    fs.writeFileSync(config.ORDERS_HISTORY_PATH, yaml_contents, function(error) {
       if (error)  {
-        log('writeHistory error');
-        log(error);
+        logger.log('writeHistory error');
+        logger.log(error);
       }
     })
   } catch (e) {
-    log('writeHistory error');
-    log(e);
+    logger.log('writeHistory error');
+    logger.log(e);
   }
 }
 
@@ -341,7 +301,7 @@ function deleteOldHistory(history, cutoff_date = DateTime.local()) {
   result = {};
   for (pair of Object.entries(history)) {
     cutoff_date_start = cutoff_date.startOf('day');
-    dt = DateTime.fromFormat(pair[0], ORDERS_HISTORY_DATE_FORMAT).startOf('day');
+    dt = DateTime.fromFormat(pair[0], config.ORDERS_HISTORY_DATE_FORMAT).startOf('day');
     if (dt >= cutoff_date_start)
     {
       result[pair[0]] = pair[1];
@@ -352,13 +312,16 @@ function deleteOldHistory(history, cutoff_date = DateTime.local()) {
 
 function getOrdersHistory(date = DateTime.local()) {
   try {
-    if (!global_history)
-      global_history = yaml.safeLoad(fs.readFileSync(ORDERS_HISTORY_PATH, FILE_ENCODING)) || {};
+    if (!global_history) {
+      if (!fs.existsSync(config.ORDERS_HISTORY_PATH))
+        fs.writeFileSync(config.ORDERS_HISTORY_PATH, '');
+      global_history = yaml.safeLoad(fs.readFileSync(config.ORDERS_HISTORY_PATH, config.FILE_ENCODING)) || {};
+    }
   } catch (e) {
-    log('getOrdersHistory error');
-    log(e);
+    logger.log('getOrdersHistory error');
+    logger.log(e);
   }
-  return global_history[date.toFormat(ORDERS_HISTORY_DATE_FORMAT)] || [];
+  return global_history[date.toFormat(config.ORDERS_HISTORY_DATE_FORMAT)] || [];
 }
 
 function isToday(date) {
@@ -393,8 +356,8 @@ function test_run() {
 
 }
 
-// run();
+run();
 // history = getOrdersHistory();
 // saveOrdersToHistory(history, [1,2]);
 
-test_run();
+// test_run();
