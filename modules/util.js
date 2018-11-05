@@ -1,4 +1,5 @@
 const { DateTime } = require('luxon');
+const constants = require('./constants');
 
 let util = function() {
 
@@ -27,6 +28,10 @@ let util = function() {
       .replace(/[\n\r]+/g, '')
       .replace(/\s{2,10}/g, ' ');
   };
+
+  this.formatDate = function (date) {
+    return date.toFormat(constants.DATE_FORMAT);
+  }
 
 };
 

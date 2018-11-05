@@ -1,7 +1,8 @@
 const yaml = require('js-yaml');
 const fs = require('fs');
+const constants = require('./constants');
 
-let settings = function(logger, constants) {
+let settings = function(logger) {
   this.readSettings = function () {
     let settings;
     try {

@@ -2,8 +2,6 @@ const { DateTime } = require('luxon');
 const request = require('request');
 const util = require('./util');
 
-// TODO: delay between requests
-
 let telegram = function(settings, logger) {
   this.mapGetUpdatesElement = function (elem) {
     console.log('mapGetUpdatesElement', elem);
@@ -95,6 +93,10 @@ let telegram = function(settings, logger) {
     return util.isToday(date) ?
       settings.credentials.telegram_bot.today.api_token :
       settings.credentials.telegram_bot.tomorrow.api_token;
+  };
+
+  this.getDelayBetweenRequests = function (){
+    return settings.credentials.telegram_bot.delay_between_requests;
   };
 };
 

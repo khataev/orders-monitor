@@ -2,12 +2,13 @@ const yaml = require('js-yaml');
 const { DateTime } = require('luxon');
 const fs = require('fs');
 const cheerio = require('cheerio');
+const constants = require('./constants');
 
 // TODO: how to avoid global var?
 let global_history;
 let global_day_history;
 
-let history = function(logger, constants) {
+let history = function(logger) {
   this.readOrdersHistory = function(date = DateTime.local()) {
     try {
       if (!global_history) {
