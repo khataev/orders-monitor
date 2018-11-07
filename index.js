@@ -6,8 +6,7 @@ const { DateTime } = require('luxon');
 // local files
 const constants = require('./modules/constants');
 const logger = require('./modules/logger');
-const settingsManager = require('./modules/settings');
-const settings = new settingsManager(logger).readSettings();
+const settings = require('./modules/config.js');
 const telegram = require('./modules/telegram');
 const util = require('./modules/util');
 const parser = require('./modules/parser');
@@ -21,18 +20,18 @@ let parserApi = new parser(historyManager, request, settings, logger);
 // TODO: обработка разлогинивания раз в час ??
 function run() {
   if (settings) {
-    logIn(settings, startUpdatesPolling)
+    logIn(settings, startUpdatesPolling);
   }
 }
 
 function logIn(settings, callback) {
   form = {
-    login: settings.credentials.personal_cabinet.login,
-    pass: settings.credentials.personal_cabinet.password
+    login: settings.get('credentials.personal_cabinet.login'),
+    pass: settings.get('credentials.personal_cabinet.password')
   };
 
   data = {
-    url: settings.credentials.personal_cabinet.login_url,
+    url: settings.get('credentials.personal_cabinet.login_url'),
     followAllRedirects: true,
     // jar: true,
     form: form
@@ -56,7 +55,7 @@ function getOrderUpdatesCallback(settings, orders, date) {
 }
 
 async function startUpdatesPolling(settings) {
-  let update_interval = settings.update_interval * 1000;
+  let update_interval = settings.get('orders.update_interval') * 1000;
   let tomorrow = DateTime.local().plus({ days: 1 });
   while(true) {
     let dt_string = DateTime.local().toISO();

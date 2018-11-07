@@ -38,7 +38,7 @@ let telegram = function(settings, logger) {
   };
 
   this.getChatIds = function (){
-    return settings.credentials.telegram_bot.chat_ids;
+    return settings.get('credentials.telegram_bot.chat_ids');
   };
 
   this.sendMessageToSubscriber = function (settings, chat_id, text, reply_markup_object, date) {
@@ -91,12 +91,12 @@ let telegram = function(settings, logger) {
 
   this.getApiToken = function (settings, date = DateTime.local()) {
     return util.isToday(date) ?
-      settings.credentials.telegram_bot.today.api_token :
-      settings.credentials.telegram_bot.tomorrow.api_token;
+      settings.get('credentials.telegram_bot.today.api_token') :
+      settings.get('credentials.telegram_bot.tomorrow.api_token');
   };
 
   this.getDelayBetweenRequests = function (){
-    return settings.credentials.telegram_bot.delay_between_requests;
+    return settings.get('credentials.telegram_bot.delay_between_requests');
   };
 };
 
