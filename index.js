@@ -2,6 +2,7 @@ const yaml = require('js-yaml');
 const requestGlobal = require('request');
 const fs = require('fs');
 const { DateTime } = require('luxon');
+const express = require('express');
 
 // local files
 const constants = require('./modules/constants');
@@ -11,15 +12,50 @@ const telegram = require('./modules/telegram');
 const util = require('./modules/util');
 const parser = require('./modules/parser');
 const history = require('./modules/history');
+const packageInfo = require('./package.json');
 
 let request = requestGlobal.defaults({jar: true});
 let telegramApi = new telegram(settings, logger);
 let historyManager = new history(logger);
 let parserApi = new parser(historyManager, request, settings, logger);
 
+function start_simple_server() {
+  if (settings.get('env') == 'production') {
+    const http = require('http')
+    let port = process.env.PORT || 80;
+    const server = http.createServer((request, response) => {
+      console.log(request.url);
+      response.end('Hello Node.js Server!');
+    });
+
+    server.listen(port, (err) => {
+      if (err) {
+        return console.log('something bad happened', err);
+      }
+      console.log(`server is listening on ${port}`);
+    })
+  }
+}
+
+function start_express_server() {
+  let app = express();
+
+  app.get('/', function (req, res) {
+    res.json({ version: packageInfo.version });
+  });
+
+  var server = app.listen(process.env.PORT, function () {
+    let host = server.address().address;
+    let port = server.address().port;
+
+    console.log('Web server started at http://%s:%s', host, port);
+  });
+}
+
 // TODO: обработка разлогинивания раз в час ??
 function run() {
   if (settings) {
+    start_express_server();
     logIn(settings, startUpdatesPolling);
   }
 }
