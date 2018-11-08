@@ -28,7 +28,7 @@ let logger = function () {
 
   this.log = function (text, write_to_console = true) {
     if (write_to_console)
-      console.log(text);
+      console.log(DateTime.local().toISO(), text);
 
     this.appendToFile(text, LOG_FILE);
   };
