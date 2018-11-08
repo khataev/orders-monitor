@@ -54,6 +54,12 @@ let telegram = function(settings, logger) {
   };
 
   this.sendMessageToSubscriberMine = async function (settings, chat_id, text, reply_markup_object, date) {
+    let sanitized_chat_id = chat_id.trim();
+    if (!sanitized_chat_id) {
+      logger.log('chat_id is empty');
+    }
+
+    let delay = this.getDelayBetweenRequests();
     let api_token = this.getApiToken(settings, date);
     let sanitized_text = util.sanitizeText(text);
     let encoded_text = encodeURI(sanitized_text);
@@ -77,15 +83,19 @@ let telegram = function(settings, logger) {
   };
 
   this.sendMessageToSubscriber = async function (settings, chat_id, text, reply_markup_object, date) {
-    // let api_token = this.getApiToken(settings, date);
+    let sanitized_chat_id = parseInt(chat_id, 10);
+    // TODO: need more sofisticated check
+    if (isNaN(sanitized_chat_id)) {
+      logger.log('chat_id is empty');
+    }
     let sanitized_text = util.sanitizeText(text);
     let delay = this.getDelayBetweenRequests();
     // let url = `https://api.telegram.org/bot${api_token}/sendMessage?chat_id=${chat_id}&text=${encoded_text}`;
-    logger.log(`sendMessageToSubscriber. chat_id: ${chat_id}, text: ${sanitized_text}`);
+    logger.log(`sendMessageToSubscriber. chat_id: ${sanitized_chat_id}, text: ${sanitized_text}`);
 
     let bot = util.isToday(date) ? bot_today : bot_tomorrow;
-    bot.sendMessage(chat_id, sanitized_text, reply_markup_object).then(function () {
-      logger.log(`sendMessageToSubscriber. SEND! chat_id: ${chat_id}, text: ${sanitized_text}`);
+    bot.sendMessage(sanitized_chat_id, sanitized_text, reply_markup_object).then(function () {
+      logger.log(`sendMessageToSubscriber. SEND! chat_id: ${sanitized_chat_id}, text: ${sanitized_text.substr(0, 20)}...`);
     });
 
     await util.sleep(delay);
@@ -93,7 +103,6 @@ let telegram = function(settings, logger) {
 
   this.sendToTelegram = async function (settings, text, replyMarkup, date = DateTime.local()) {
     let chat_ids = this.getChatIds();
-
     if (chat_ids && chat_ids.length > 0) {
       logger.log(`sendToTelegram. destination chat_ids: ${chat_ids}`);
       // TODO: how to avoid this context hoisting?
