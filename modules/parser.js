@@ -53,7 +53,7 @@ function filterOrders (i, elem) {
 
 seizeOrderUrl = function (orderNumber) {
   // TODO: move to settings
-  return (`http://ultima.uk.to/sched.php?id=${orderNumber}`);
+  return `http://ultima.uk.to/sched.php?id=${orderNumber}`;
 };
 
 let parser = function (history_manager, request, settings, logger) {
@@ -106,10 +106,20 @@ let parser = function (history_manager, request, settings, logger) {
   };
 
   this.getReplyMarkup = function (orderNumber) {
-    return reply_markup = {
+    return {
       inline_keyboard: [
         [{ text: 'Забрать заказ', url: seizeOrderUrl(orderNumber)}]
       ]
+    };
+  };
+
+  this.getReplyMarkupBotApi = function (orderNumber) {
+    return {
+      "reply_markup": {
+        "inline_keyboard": [
+          [{ "text": 'Забрать заказ', "url": seizeOrderUrl(orderNumber)}]
+        ]
+      }
     };
   };
 };

@@ -106,7 +106,7 @@ async function startUpdatesPolling(settings) {
 async function sendOrdersToTelegram(settings, orders, date = DateTime.local()) {
   await util.asyncForEach(orders, async function(i, elem) {
     let orderNumber = parserApi.getOrderNumber(elem);
-    let replyMarkup = parserApi.getReplyMarkup(orderNumber);
+    const replyMarkup = parserApi.getReplyMarkupBotApi(orderNumber);
     let text = parserApi.renderOrderData(elem);
 
     await telegramApi.sendToTelegram(settings, text, replyMarkup, date);
