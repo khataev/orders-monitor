@@ -2,7 +2,19 @@ const { DateTime } = require('luxon');
 const request = require('request');
 const util = require('./util');
 
+const Bot = require('node-telegram-bot-api');
+
+let today_token,
+  tomorrow_token,
+  bot_tomorrow,
+  bot_today;
+
 let telegram = function(settings, logger) {
+  let today_token = settings.get('credentials.telegram_bot.today.api_token'),
+    tomorrow_token = settings.get('credentials.telegram_bot.tomorrow.api_token'),
+    bot_tomorrow = new Bot(tomorrow_token, { polling: false }),
+    bot_today = new Bot(today_token, { polling: false });
+
   this.mapGetUpdatesElement = function (elem) {
     console.log('mapGetUpdatesElement', elem);
     return elem['message']['chat']['id'];
@@ -41,7 +53,7 @@ let telegram = function(settings, logger) {
     return settings.get('credentials.telegram_bot.chat_ids');
   };
 
-  this.sendMessageToSubscriber = function (settings, chat_id, text, reply_markup_object, date) {
+  this.sendMessageToSubscriberMine = async function (settings, chat_id, text, reply_markup_object, date) {
     let api_token = this.getApiToken(settings, date);
     let sanitized_text = util.sanitizeText(text);
     let encoded_text = encodeURI(sanitized_text);
@@ -54,22 +66,40 @@ let telegram = function(settings, logger) {
     request.post({
       url: url
     }, function(error, response, body) {
+      logger.log(`sendMessageToSubscriber. SEND! chat_id: ${chat_id}, text: ${sanitized_text}`);
       if (error) {
         logger.log(`sendMessageToSubscriber. error: ${error}`); // Print the error if one occurred
         logger.log(`sendMessageToSubscriber. statusCode: ${response && response.statusCode}`); // Print the response status code if a response was received
       }
     });
+
+    await util.sleep(delay);
   };
 
-  this.sendToTelegram = function (settings, text, replyMarkup, date = DateTime.local()) {
+  this.sendMessageToSubscriber = async function (settings, chat_id, text, reply_markup_object, date) {
+    // let api_token = this.getApiToken(settings, date);
+    let sanitized_text = util.sanitizeText(text);
+    let delay = this.getDelayBetweenRequests();
+    // let url = `https://api.telegram.org/bot${api_token}/sendMessage?chat_id=${chat_id}&text=${encoded_text}`;
+    logger.log(`sendMessageToSubscriber. chat_id: ${chat_id}, text: ${sanitized_text}`);
+
+    let bot = util.isToday(date) ? bot_today : bot_tomorrow;
+    bot.sendMessage(chat_id, sanitized_text, reply_markup_object).then(function () {
+      logger.log(`sendMessageToSubscriber. SEND! chat_id: ${chat_id}, text: ${sanitized_text}`);
+    });
+
+    await util.sleep(delay);
+  };
+
+  this.sendToTelegram = async function (settings, text, replyMarkup, date = DateTime.local()) {
     let chat_ids = this.getChatIds();
 
     if (chat_ids && chat_ids.length > 0) {
       logger.log(`sendToTelegram. destination chat_ids: ${chat_ids}`);
       // TODO: how to avoid this context hoisting?
       let parent = this;
-      chat_ids.forEach(function (chat_id) {
-        parent.sendMessageToSubscriber(settings, chat_id, text, replyMarkup, date);
+      await util.asyncForEach(chat_ids, async function (i, chat_id) {
+        await parent.sendMessageToSubscriber(settings, chat_id, text, replyMarkup, date);
       });
     }
     // TODO: use as promise example
