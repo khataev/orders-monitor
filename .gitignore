@@ -1,0 +1,5 @@
+/.idea
+/log/*
+orders_history.yml
+orders-monitor
+settings.yml

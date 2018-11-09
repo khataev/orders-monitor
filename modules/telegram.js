@@ -2,7 +2,19 @@ const { DateTime } = require('luxon');
 const request = require('request');
 const util = require('./util');
 
+const Bot = require('node-telegram-bot-api');
+
+let today_token,
+  tomorrow_token,
+  bot_tomorrow,
+  bot_today;
+
 let telegram = function(settings, logger) {
+  let today_token = settings.get('credentials.telegram_bot.today.api_token'),
+    tomorrow_token = settings.get('credentials.telegram_bot.tomorrow.api_token'),
+    bot_tomorrow = new Bot(tomorrow_token, { polling: false }),
+    bot_today = new Bot(today_token, { polling: false });
+
   this.mapGetUpdatesElement = function (elem) {
     console.log('mapGetUpdatesElement', elem);
     return elem['message']['chat']['id'];
@@ -38,10 +50,16 @@ let telegram = function(settings, logger) {
   };
 
   this.getChatIds = function (){
-    return settings.credentials.telegram_bot.chat_ids;
+    return settings.get('credentials.telegram_bot.chat_ids');
   };
 
-  this.sendMessageToSubscriber = function (settings, chat_id, text, reply_markup_object, date) {
+  this.sendMessageToSubscriberMine = async function (settings, chat_id, text, reply_markup_object, date) {
+    let sanitized_chat_id = chat_id.trim();
+    if (!sanitized_chat_id) {
+      logger.log('chat_id is empty');
+    }
+
+    let delay = this.getDelayBetweenRequests();
     let api_token = this.getApiToken(settings, date);
     let sanitized_text = util.sanitizeText(text);
     let encoded_text = encodeURI(sanitized_text);
@@ -54,22 +72,43 @@ let telegram = function(settings, logger) {
     request.post({
       url: url
     }, function(error, response, body) {
+      logger.log(`sendMessageToSubscriber. SEND! chat_id: ${chat_id}, text: ${sanitized_text}`);
       if (error) {
         logger.log(`sendMessageToSubscriber. error: ${error}`); // Print the error if one occurred
         logger.log(`sendMessageToSubscriber. statusCode: ${response && response.statusCode}`); // Print the response status code if a response was received
       }
     });
+
+    await util.sleep(delay);
   };
 
-  this.sendToTelegram = function (settings, text, replyMarkup, date = DateTime.local()) {
-    let chat_ids = this.getChatIds();
+  this.sendMessageToSubscriber = async function (settings, chat_id, text, reply_markup_object, date) {
+    let sanitized_chat_id = parseInt(chat_id, 10);
+    // TODO: need more sofisticated check
+    if (isNaN(sanitized_chat_id)) {
+      logger.log('chat_id is empty');
+    }
+    let sanitized_text = util.sanitizeText(text);
+    let delay = this.getDelayBetweenRequests();
+    // let url = `https://api.telegram.org/bot${api_token}/sendMessage?chat_id=${chat_id}&text=${encoded_text}`;
+    logger.log(`sendMessageToSubscriber. chat_id: ${sanitized_chat_id}, text: ${sanitized_text}`);
 
+    let bot = util.isToday(date) ? bot_today : bot_tomorrow;
+    bot.sendMessage(sanitized_chat_id, sanitized_text, reply_markup_object).then(function () {
+      logger.log(`sendMessageToSubscriber. SEND! chat_id: ${sanitized_chat_id}, text: ${sanitized_text.substr(0, 20)}...`);
+    });
+
+    await util.sleep(delay);
+  };
+
+  this.sendToTelegram = async function (settings, text, replyMarkup, date = DateTime.local()) {
+    let chat_ids = this.getChatIds();
     if (chat_ids && chat_ids.length > 0) {
       logger.log(`sendToTelegram. destination chat_ids: ${chat_ids}`);
       // TODO: how to avoid this context hoisting?
       let parent = this;
-      chat_ids.forEach(function (chat_id) {
-        parent.sendMessageToSubscriber(settings, chat_id, text, replyMarkup, date);
+      await util.asyncForEach(chat_ids, async function (i, chat_id) {
+        await parent.sendMessageToSubscriber(settings, chat_id, text, replyMarkup, date);
       });
     }
     // TODO: use as promise example
@@ -91,12 +130,12 @@ let telegram = function(settings, logger) {
 
   this.getApiToken = function (settings, date = DateTime.local()) {
     return util.isToday(date) ?
-      settings.credentials.telegram_bot.today.api_token :
-      settings.credentials.telegram_bot.tomorrow.api_token;
+      settings.get('credentials.telegram_bot.today.api_token') :
+      settings.get('credentials.telegram_bot.tomorrow.api_token');
   };
 
   this.getDelayBetweenRequests = function (){
-    return settings.credentials.telegram_bot.delay_between_requests;
+    return settings.get('credentials.telegram_bot.delay_between_requests');
   };
 };
 

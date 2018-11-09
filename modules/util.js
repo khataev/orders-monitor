@@ -1,10 +1,15 @@
 const { DateTime } = require('luxon');
 const constants = require('./constants');
+// TODO: pass as a dependency
+const logger = require('./logger');
 
 let util = function() {
 
   this.sleep = async function (ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise(resolve => {
+      logger.log(`sleep for ${ms} ms`);
+      setTimeout(resolve, ms);
+    });
   };
 
   this.asyncForEach = async function (array, callback) {

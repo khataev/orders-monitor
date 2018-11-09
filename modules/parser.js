@@ -17,8 +17,8 @@ function filterOnlyOrders (i, elem) {
 };
 
 function filterByTime (i, elem) {
-  let from_hour = settings_global.orders_filter.from_hour,
-    to_hour = settings_global.orders_filter.to_hour;
+  let from_hour = settings_global.get('orders.filter_hours.from'),
+    to_hour = settings_global.get('orders.filter_hours.to');
 
   if (!(from_hour && to_hour))
     return true;
@@ -52,7 +52,8 @@ function filterOrders (i, elem) {
 };
 
 seizeOrderUrl = function (orderNumber) {
-  return (`http://ultima.uk.to/sched.php?id=${orderNumber}`);
+  // TODO: move to settings
+  return `http://ultima.uk.to/sched.php?id=${orderNumber}`;
 };
 
 let parser = function (history_manager, request, settings, logger) {
@@ -61,7 +62,7 @@ let parser = function (history_manager, request, settings, logger) {
 
   this.getOrdersUpdates = function (callback, date = DateTime.local()) {
     data = {
-      url: settings.orders_page,
+      url: settings.get('orders.url'),
       qs: { 'date': util.formatDate(date) }
     };
     request.get(data, function (error, response, body) {
@@ -105,10 +106,20 @@ let parser = function (history_manager, request, settings, logger) {
   };
 
   this.getReplyMarkup = function (orderNumber) {
-    return reply_markup = {
+    return {
       inline_keyboard: [
         [{ text: 'Забрать заказ', url: seizeOrderUrl(orderNumber)}]
       ]
+    };
+  };
+
+  this.getReplyMarkupBotApi = function (orderNumber) {
+    return {
+      "reply_markup": {
+        "inline_keyboard": [
+          [{ "text": 'Забрать заказ', "url": seizeOrderUrl(orderNumber)}]
+        ]
+      }
     };
   };
 };
