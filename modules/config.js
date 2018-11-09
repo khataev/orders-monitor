@@ -1,12 +1,44 @@
-let convict = require('convict');
+const convict = require('convict');
 
 // Define a schema
-var config = convict({
+const config = convict({
   env: {
     doc: "The application environment.",
     format: ["production", "development", "test"],
     default: "development",
     env: "NODE_ENV"
+  },
+  db: {
+    username: {
+      doc: "username",
+      format: String,
+      default: "",
+      env: "DB_USERNAME"
+    },
+    password: {
+      doc: "password",
+      format: String,
+      default: "",
+      env: "DB_PASSWORD"
+    },
+    database: {
+      doc: "database",
+      format: String,
+      default: "",
+      env: "DB_DATABASE"
+    },
+    host: {
+      doc: "host",
+      format: String,
+      default: "127.0.0.1",
+      env: "DB_HOST"
+    },
+    dialect: {
+      doc: "dialect",
+      format: String,
+      default: "postgres",
+      env: "DB_DIALECT"
+    }
   },
   orders: {
     url: {

@@ -3,21 +3,27 @@ const requestGlobal = require('request');
 const fs = require('fs');
 const { DateTime } = require('luxon');
 const express = require('express');
+const Sequelize = require('sequelize');
 
 // local files
 const constants = require('./modules/constants');
 const logger = require('./modules/logger');
-const settings = require('./modules/config.js');
+const settings = require('./modules/config');
 const telegram = require('./modules/telegram');
 const util = require('./modules/util');
 const parser = require('./modules/parser');
 const history = require('./modules/history');
 const packageInfo = require('./package.json');
 
+const database = require('./config/database');
+const sequelize = new Sequelize(database[settings.get('env')]);
+
 let request = requestGlobal.defaults({jar: true});
 let telegramApi = new telegram(settings, logger);
 let historyManager = new history(logger);
 let parserApi = new parser(historyManager, request, settings, logger);
+
+const Order = sequelize.import("./models/order");
 
 function start_simple_server() {
   if (settings.get('env') == 'production') {
@@ -115,6 +121,21 @@ async function sendOrdersToTelegram(settings, orders, date = DateTime.local()) {
 
 function test_run() {
   if (settings) {
+
+    // sequelize
+    //   .authenticate()
+    //   .then(() => {
+    //     console.log('Connection has been established successfully.');
+    //   })
+    //   .catch(err => {
+    //     console.error('Unable to connect to the database:', err);
+    //   });
+
+    // Order.findAll().then(users => {
+    //   console.log(123)
+    //   console.log(users)
+    // })
+
     // telegramApi.getBotSubscribers(DateTime.local()).then(response => console.log('Today Subscribers: ', response));
     // telegramApi.getBotSubscribers(DateTime.local().plus({days: 1})).then(response => console.log('Tomorrow Subscribers: ', response));
   }
@@ -127,5 +148,5 @@ function test_run() {
   // console.log(sanitizeText(text));
 }
 
-run();
-// test_run();
+// run();
+test_run();

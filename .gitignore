@@ -3,3 +3,4 @@
 orders_history.yml
 orders-monitor
 settings.yml
+.sequelizerc
