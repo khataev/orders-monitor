@@ -22,7 +22,7 @@ module.exports = {
         allowNull: false,
         type: Sequelize.DATE
       }
-    });
+    }).then(() => queryInterface.addIndex('Orders', { unique: true, fields: ['orderNumber']}));
   },
   down: (queryInterface, Sequelize) => {
     return queryInterface.dropTable('Orders');

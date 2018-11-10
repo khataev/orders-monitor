@@ -82,6 +82,7 @@ let telegram = function(settings, logger) {
     await util.sleep(delay);
   };
 
+  // TODO: rollback save to history if send failed
   this.sendMessageToSubscriber = async function (settings, chat_id, text, reply_markup_object, date) {
     let sanitized_chat_id = parseInt(chat_id, 10);
     // TODO: need more sofisticated check

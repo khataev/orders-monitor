@@ -1,40 +1,127 @@
-const yaml = require('js-yaml');
 const { DateTime } = require('luxon');
-const fs = require('fs');
 const cheerio = require('cheerio');
+const Sequelize = require('sequelize');
+const Op = Sequelize.Op;
+
 const constants = require('./constants');
+const database = require('./../config/database');
 
-// TODO: how to avoid global var?
-let global_history;
-let global_day_history;
+let logger;
+let sequelize;
+let Order;
 
-let history = function(logger) {
-  this.readOrdersHistory = function(date = DateTime.local()) {
-    try {
-      if (!global_history) {
-        if (!fs.existsSync(constants.ORDERS_HISTORY_PATH))
-          fs.writeFileSync(constants.ORDERS_HISTORY_PATH, '');
-        global_history = yaml.safeLoad(fs.readFileSync(constants.ORDERS_HISTORY_PATH, constants.FILE_ENCODING)) || {};
+let global_history = {};
+
+function printHistory(history) {
+  console.log('printing');
+  for (var order_number_key in history) {
+    if (history.hasOwnProperty(order_number_key)){
+      order = history[order_number_key];
+      console.log(order.orderNumber);
+    }
+  }
+}
+
+// TODO: date param is unneeded
+function initOrdersHistory() {
+  let promise =
+    Order
+      .findAll({
+        where: {
+          // date: date
+        }
+      });
+      // .finally(() => Order.sequelize.close());
+
+  return promise.then((orders = []) => {
+    logger.log(`initOrdersHistory, loaded: ${orders.length}`);
+    orders.forEach((element) => global_history[element.orderNumber] = element);
+  });
+}
+
+function writeHistory(history) {
+  onFulfilled = function (result) {
+    logger.log('SAVED');
+  };
+
+  onRejected = function (error) {
+    logger.log(`writeHistory error ${error.message}`);
+  };
+
+  for (var date_key in history) {
+    console.log(date_key);
+    if (history.hasOwnProperty(date_key)) {
+      day_history = history[date_key];
+
+      for (var order_number_key in day_history) {
+        if (day_history.hasOwnProperty(order_number_key)){
+          order = day_history[order_number_key];
+          order
+            .save()
+            .then(onFulfilled, onRejected);
+            // .finally(() => order.sequelize.close());
+        }
       }
-    } catch (e) {
-      logger.log('readOrdersHistory error');
-      logger.log(e);
     }
-    global_day_history = global_history[date.toFormat(constants.ORDERS_HISTORY_DATE_FORMAT)] || [];
-  };
+  }
+};
 
-  this.saveOrdersToHistory = function(history, orders, date = DateTime.local()) {
-    key = date.toFormat(constants.ORDERS_HISTORY_DATE_FORMAT);
-    if (!history[key]) {
-      history[key] = orders
+function deleteOldHistory(cutoff_date = DateTime.local()) {
+  result = Order.destroy({
+    where: {
+      date: {
+        [Op.lt]: cutoff_date.toJSDate()
+      }
     }
-    else {
-      history[key] = Array.from(new Set(history[key].concat(orders)));
-    }
-    history = this.deleteOldHistory(history);
-    this.writeHistory(history);
-  };
+  });
+    // .finally( () => Order.sequelize.close());
 
+  return result;
+};
+
+function buildOrder(date_key, order_number) {
+  return Order.build(
+    {
+      date: date_key,
+      orderNumber: order_number
+    }
+  );
+}
+
+function createOrder(date_key, order_number) {
+  buildOrder(date_key, order_number)
+    .save()
+    .finally((order) => Order.sequelize.close());
+}
+
+function saveOrdersToHistory(history, orders, date = DateTime.local()) {
+  key = date.toFormat(constants.ORDERS_HISTORY_DATE_FORMAT);
+  if (!history)
+    history = {};
+
+  orders.forEach(function(order_number){
+    if (!history[order_number]) {
+      order = buildOrder(key, order_number);
+      history[order_number] = order;
+      console.log('save to history', order.orderNumber);
+      order
+        .save();
+        // .finally(() => order.sequelize.close());
+    }
+  });
+};
+
+function dayHistoryIncludes(order_number) {
+  return !!global_history[order_number];
+}
+
+let history = function(settings, log) {
+  logger = log;
+  sequelize = new Sequelize(database[settings.get('env')]);
+  Order = sequelize.import("./../models/order");
+
+  this.initOrdersHistory = initOrdersHistory;
+  this.saveOrdersToHistory = saveOrdersToHistory;
   this.saveRawOrdersToHistory = function(orders, date = DateTime.local()) {
     let result = cheerio(orders).map(function(i, elem) {
       // logger.log(cheerio(elem).children('td').eq(1).text());
@@ -42,38 +129,18 @@ let history = function(logger) {
     });
     this.saveOrdersToHistory(global_history, Array.from(result), date);
   };
-
-  this.writeHistory = function(history) {
-    try {
-      yaml_contents = yaml.safeDump(history);
-      fs.writeFileSync(constants.ORDERS_HISTORY_PATH, yaml_contents, function(error) {
-        if (error)  {
-          logger.log('writeHistory error');
-          logger.log(error);
-        }
-      })
-    } catch (e) {
-      logger.log('writeHistory error');
-      logger.log(e);
-    }
+  this.writeHistory = writeHistory;
+  // TODO: call once a day
+  this.deleteOldHistory = deleteOldHistory;
+  this.purgeHistory = function() {
+    Order.destroy({
+      where: {},
+      truncate: true
+    })
+      .finally( () => Order.sequelize.close());
   };
-
-  this.deleteOldHistory = function(history, cutoff_date = DateTime.local()) {
-    result = {};
-    for (pair of Object.entries(history)) {
-      cutoff_date_start = cutoff_date.startOf('day');
-      dt = DateTime.fromFormat(pair[0], constants.ORDERS_HISTORY_DATE_FORMAT).startOf('day');
-      if (dt >= cutoff_date_start)
-      {
-        result[pair[0]] = pair[1];
-      }
-    }
-    return result;
-  };
-
-  this.dayHistoryIncludes = function(order_number) {
-    return global_day_history.includes(order_number);
-  };
+  this.dayHistoryIncludes = dayHistoryIncludes;
+  this.createOrder = createOrder;
 };
 
 module.exports = history;

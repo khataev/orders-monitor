@@ -60,27 +60,32 @@ let parser = function (history_manager, request, settings, logger) {
   historyManager = history_manager;
   settings_global = settings;
 
-  this.getOrdersUpdates = function (callback, date = DateTime.local()) {
+  this.getOrdersUpdates = function (attempt, callback, date = DateTime.local()) {
     data = {
       url: settings.get('orders.url'),
       qs: { 'date': util.formatDate(date) }
     };
+    let start_time = DateTime.local();
     request.get(data, function (error, response, body) {
       if (error) {
         logger.log('error:', error); // Print the error if one occurred
         logger.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
         return null;
       }
-
+      let end_time = DateTime.local();
+      request_duration = end_time.diff(start_time, ['seconds', 'milliseconds']);
+      logger.log(`request attempt ${attempt} duration: ${request_duration.toFormat('s.SS')}`);
       let $$ = $.load(body);
       selector = '#body > table:nth-child(2) > tbody > tr > td > table:nth-child(6) > tbody';
 
       $orders_tbody = $$(selector);
       $orders = $orders_tbody.children('tr');
-      historyManager.readOrdersHistory(date);
+      // historyManager.readOrdersHistory(date);
+      // logger.log(`getOrdersUpdates. before filter: ${$orders.length}`);
       $orders = $orders.filter(filterOrders);
+      // logger.log(`getOrdersUpdates. after filter: ${$orders.length}`);
 
-      callback(settings, $orders, date);
+      callback(attempt, settings, $orders, date);
     });
   };
 
@@ -92,6 +97,7 @@ let parser = function (history_manager, request, settings, logger) {
     return getOrderNumber(order_row);
   };
 
+  // TODO: do we need link to status page?
   this.renderOrderData = function (order) {
     // 1, 3, 6, 7, 5, 2
     let $order = $(order);

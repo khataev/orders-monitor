@@ -3,7 +3,6 @@ const requestGlobal = require('request');
 const fs = require('fs');
 const { DateTime } = require('luxon');
 const express = require('express');
-const Sequelize = require('sequelize');
 
 // local files
 const constants = require('./modules/constants');
@@ -15,15 +14,10 @@ const parser = require('./modules/parser');
 const history = require('./modules/history');
 const packageInfo = require('./package.json');
 
-const database = require('./config/database');
-const sequelize = new Sequelize(database[settings.get('env')]);
-
 let request = requestGlobal.defaults({jar: true});
 let telegramApi = new telegram(settings, logger);
-let historyManager = new history(logger);
+let historyManager = new history(settings, logger);
 let parserApi = new parser(historyManager, request, settings, logger);
-
-const Order = sequelize.import("./models/order");
 
 function start_simple_server() {
   if (settings.get('env') == 'production') {
@@ -44,25 +38,33 @@ function start_simple_server() {
 }
 
 function start_express_server() {
-  let app = express();
+  if (settings.get('env') == 'production') {
+    let app = express();
 
-  app.get('/', function (req, res) {
-    res.json({ version: packageInfo.version });
-  });
+    app.get('/', function (req, res) {
+      res.json({ version: packageInfo.version });
+    });
 
-  var server = app.listen(process.env.PORT, function () {
-    let host = server.address().address;
-    let port = server.address().port;
+    var server = app.listen(process.env.PORT, function () {
+      let host = server.address().address;
+      let port = server.address().port;
 
-    console.log('Web server started at http://%s:%s', host, port);
-  });
+      console.log('Web server started at http://%s:%s', host, port);
+    });
+  }
 }
 
 // TODO: обработка разлогинивания раз в час ??
 function run() {
   if (settings) {
     start_express_server();
-    logIn(settings, startUpdatesPolling);
+
+    historyManager
+      .initOrdersHistory()
+      .then(orders => { console.log('INIT ORDERS HISTORY COMPLETE'); })
+      .then(result => {
+        logIn(settings, startUpdatesPolling);
+      });
   }
 }
 
@@ -80,17 +82,18 @@ function logIn(settings, callback) {
   };
 
   request.post(data, function (error, response, body) {
-    logger.log('error:', error); // Print the error if one occurred
-    logger.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
-    // logger.log('body:', body); // Print the HTML for the Google homepage.
-    logger.writeToFile(body, 'log/login.html');
-
+    if (error) {
+      logger.log('error:', error); // Print the error if one occurred
+      logger.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
+      // logger.log('body:', body); // Print the HTML for the Google homepage.
+      // logger.writeToFile(body, 'log/login.html');
+    }
     callback(settings);
   });
 }
 
-function getOrderUpdatesCallback(settings, orders, date) {
-  logger.log(`new orders for ${date.toFormat(constants.DATE_FORMAT)} (${orders.length})`);
+function getOrderUpdatesCallback(attempt, settings, orders, date) {
+  logger.log(`new orders attempt: ${attempt} for ${date.toFormat(constants.DATE_FORMAT)} (${orders.length})`);
   // send to telega
   sendOrdersToTelegram(settings, orders, date);
   historyManager.saveRawOrdersToHistory(orders, date);
@@ -99,11 +102,13 @@ function getOrderUpdatesCallback(settings, orders, date) {
 async function startUpdatesPolling(settings) {
   let update_interval = settings.get('orders.update_interval') * 1000;
   let tomorrow = DateTime.local().plus({ days: 1 });
+  let attempt = 0;
   while(true) {
+    attempt = attempt + 1;
     let dt_string = DateTime.local().toISO();
-    logger.log(`getting updates at ${dt_string}`);
-    parserApi.getOrdersUpdates(getOrderUpdatesCallback);
-    parserApi.getOrdersUpdates(getOrderUpdatesCallback, tomorrow);
+    logger.log(`GETTING UPDATES, attempt: ${attempt} at: ${dt_string}`);
+    parserApi.getOrdersUpdates(attempt, getOrderUpdatesCallback);
+    parserApi.getOrdersUpdates(attempt, getOrderUpdatesCallback, tomorrow);
 
     await util.sleep(update_interval);
   }
@@ -114,39 +119,38 @@ async function sendOrdersToTelegram(settings, orders, date = DateTime.local()) {
     let orderNumber = parserApi.getOrderNumber(elem);
     const replyMarkup = parserApi.getReplyMarkupBotApi(orderNumber);
     let text = parserApi.renderOrderData(elem);
-
-    await telegramApi.sendToTelegram(settings, text, replyMarkup, date);
+// TODO: remove debug
+    await telegramApi.sendToTelegram(settings, `local bot: ${text}`, replyMarkup, date);
   });
 }
 
 function test_run() {
   if (settings) {
 
-    // sequelize
-    //   .authenticate()
-    //   .then(() => {
-    //     console.log('Connection has been established successfully.');
-    //   })
-    //   .catch(err => {
-    //     console.error('Unable to connect to the database:', err);
+    var end = DateTime.fromISO('2017-03-15');
+    var start = DateTime.fromISO('2017-02-12');
+    console.log(end.diff(start, ['seconds', 'milliseconds']).toFormat('s.SS'));
+
+    // const Sequelize = require('sequelize');
+    // const database = require('./config/database');
+    // sequelize = new Sequelize(database[settings.get('env')]);
+    // Order = sequelize.import("./models/order");
+    //
+    // historyManager
+    //   .initOrdersHistory()
+    //   .then(orders => { console.log('INIT COMPLETE'); })
+    //   .then(result => {
+    //
+    //
+    //     result = historyManager.dayHistoryIncludes('47653830');
+    //     console.log('result', result)
+    //     console.log('exit');
     //   });
 
-    // Order.findAll().then(users => {
-    //   console.log(123)
-    //   console.log(users)
-    // })
-
-    // telegramApi.getBotSubscribers(DateTime.local()).then(response => console.log('Today Subscribers: ', response));
-    // telegramApi.getBotSubscribers(DateTime.local().plus({days: 1})).then(response => console.log('Tomorrow Subscribers: ', response));
+    // console.log(DateTime.local().toJSDate());
+    key = DateTime.local().toFormat(constants.ORDERS_HISTORY_DATE_FORMAT);
   }
-
-  // let dt = DateTime.fromFormat('2018-11-04', 'yyyy-LL-dd');
-  // console.log(isToday(dt));
-
-  // let text = '1   2 \n 44   5 \n ';
-  // console.log(text);
-  // console.log(sanitizeText(text));
 }
 
-// run();
-test_run();
+run();
+// test_run();

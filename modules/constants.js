@@ -1,6 +1,6 @@
 const DATE_FORMAT = 'dd-LL-yyyy';
 const ORDERS_HISTORY_PATH = 'orders_history.yml';
-const ORDERS_HISTORY_DATE_FORMAT = 'dd-LL-yyyy';
+const ORDERS_HISTORY_DATE_FORMAT = 'yyyy-LL-dd';
 const FILE_ENCODING = 'utf-8';
 
 module.exports = {
