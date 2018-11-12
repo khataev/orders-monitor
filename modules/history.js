@@ -17,54 +17,59 @@ function printHistory(history) {
   for (var order_number_key in history) {
     if (history.hasOwnProperty(order_number_key)){
       order = history[order_number_key];
-      console.log(order.orderNumber);
+      logger.log(`${order_number_key} - ${order.orderNumber}`);
     }
   }
 }
 
-// TODO: date param is unneeded
+function printGlobalHistory() {
+  printHistory(global_history);
+}
+
+function getHistoryKey(order) {
+  // quote from Sequelize help:
+  // DATEONLY now returns string in YYYY-MM-DD format rather than Date type
+  return getHistoryKeySimple(order.date, order.orderNumber);
+}
+
+function getHistoryKeySimple(date_key, orderNumber) {
+  return `${date_key}-${orderNumber}`;
+}
+
 function initOrdersHistory() {
   let promise =
-    Order
-      .findAll({
-        where: {
-          // date: date
-        }
-      });
+    Order.findAll({ where: {} });
       // .finally(() => Order.sequelize.close());
 
   return promise.then((orders = []) => {
     logger.log(`initOrdersHistory, loaded: ${orders.length}`);
-    orders.forEach((element) => global_history[element.orderNumber] = element);
+    orders.forEach(order => global_history[getHistoryKey(order)] = order);
+    // printHistory(global_history);
   });
 }
 
-function writeHistory(history) {
-  onFulfilled = function (result) {
-    logger.log('SAVED');
-  };
-
-  onRejected = function (error) {
-    logger.log(`writeHistory error ${error.message}`);
-  };
-
-  for (var date_key in history) {
-    console.log(date_key);
-    if (history.hasOwnProperty(date_key)) {
-      day_history = history[date_key];
-
-      for (var order_number_key in day_history) {
-        if (day_history.hasOwnProperty(order_number_key)){
-          order = day_history[order_number_key];
-          order
-            .save()
-            .then(onFulfilled, onRejected);
-            // .finally(() => order.sequelize.close());
-        }
-      }
-    }
-  }
-};
+// TODO: unneded
+// function writeHistory(history) {
+//   onFulfilled = function (result) {
+//     logger.log('SAVED');
+//   };
+//
+//   onRejected = function (error) {
+//     logger.log(`writeHistory error ${error.message}`);
+//   };
+//
+//   console.log(history_key);
+//   for (var order_number_key in history) {
+//     if (history.hasOwnProperty(order_number_key)) {
+//       order = history[order_number_key];
+//       order
+//         .save()
+//         .then(onFulfilled, onRejected);
+//       // .finally(() => order.sequelize.close());
+//     }
+//   }
+//
+// };
 
 function deleteOldHistory(cutoff_date = DateTime.local()) {
   result = Order.destroy({
@@ -94,25 +99,35 @@ function createOrder(date_key, order_number) {
     .finally((order) => Order.sequelize.close());
 }
 
+// HINT: not used anymore
 function saveOrdersToHistory(history, orders, date = DateTime.local()) {
-  key = date.toFormat(constants.ORDERS_HISTORY_DATE_FORMAT);
   if (!history)
     history = {};
 
   orders.forEach(function(order_number){
-    if (!history[order_number]) {
-      order = buildOrder(key, order_number);
-      history[order_number] = order;
-      console.log('save to history', order.orderNumber);
-      order
-        .save();
-        // .finally(() => order.sequelize.close());
-    }
+    saveOrderToHistory(order_number, date)
   });
 };
 
-function dayHistoryIncludes(order_number) {
-  return !!global_history[order_number];
+function saveOrderToHistory(orderNumber, date) {
+  date_key = date.toFormat(constants.ORDERS_HISTORY_DATE_FORMAT);
+  history_key = getHistoryKeySimple(date_key, orderNumber);
+  logger.log.log(`check before save history ${history_key} ${global_history[history_key] && global_history[history_key].orderNumber}`);
+  if (!global_history[history_key]) {
+    order = buildOrder(date_key, orderNumber);
+    global_history[history_key] = order;
+    logger.log(`save to history ${history_key}: ${order.orderNumber}`);
+    order
+      .save();
+    // .finally(() => order.sequelize.close());
+  }
+}
+
+function dayHistoryIncludes(date, order_number) {
+  date_key = date.toFormat(constants.ORDERS_HISTORY_DATE_FORMAT);
+  result = !!global_history[getHistoryKeySimple(date_key, order_number)];
+  // console.log('HISTORY SEARCH', getHistoryKeySimple(date_key, order_number), result);
+  return result;
 }
 
 let history = function(settings, log) {
@@ -121,7 +136,12 @@ let history = function(settings, log) {
   Order = sequelize.import("./../models/order");
 
   this.initOrdersHistory = initOrdersHistory;
-  this.saveOrdersToHistory = saveOrdersToHistory;
+
+  this.saveOrderToHistory = saveOrderToHistory;
+
+  // this.saveOrdersToHistory = saveOrdersToHistory;
+
+  // HINT: not used anymore
   this.saveRawOrdersToHistory = function(orders, date = DateTime.local()) {
     let result = cheerio(orders).map(function(i, elem) {
       // logger.log(cheerio(elem).children('td').eq(1).text());
@@ -129,9 +149,12 @@ let history = function(settings, log) {
     });
     this.saveOrdersToHistory(global_history, Array.from(result), date);
   };
-  this.writeHistory = writeHistory;
+
+  // this.writeHistory = writeHistory;
+
   // TODO: call once a day
   this.deleteOldHistory = deleteOldHistory;
+
   this.purgeHistory = function() {
     Order.destroy({
       where: {},
@@ -139,8 +162,12 @@ let history = function(settings, log) {
     })
       .finally( () => Order.sequelize.close());
   };
+
   this.dayHistoryIncludes = dayHistoryIncludes;
+
   this.createOrder = createOrder;
+
+  this.printGlobalHistory = printGlobalHistory;
 };
 
 module.exports = history;

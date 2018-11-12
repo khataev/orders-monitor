@@ -1,6 +1,7 @@
 const $ = require('cheerio');
 const { DateTime } = require('luxon');
 const util = require('./util');
+const constants = require('./constants');
 
 let historyManager, settings_global;
 
@@ -33,37 +34,75 @@ function filterByTime (i, elem) {
   }
 };
 
-function filterByStatus (i, elem) {
-  // TODO: фильтр по статусу заказа
-  return true;
+function filterByStatus (settings, logger, request, orders, date, positive_callback) {
+  $(orders).each((i, order) => {
+    // console.log('GET ORDER STATUS', getOrderNumber(elem));
+    getOrderStatus(settings, logger, request, order, date, positive_callback)
+  });
 };
 
-function filterByHistory (i, elem) {
+function filterByHistory (i, elem, date) {
   let order_number = getOrderNumber(elem);
 
-  return !historyManager.dayHistoryIncludes(order_number);
+  return !historyManager.dayHistoryIncludes(date, order_number);
 };
 
-function filterOrders (i, elem) {
+function filterOrders (i, elem, date) {
   return filterOnlyOrders(i, elem) &&
     filterByTime(i, elem) &&
-    filterByStatus(i, elem) &&
-    filterByHistory(i, elem);
+    filterByHistory(i, elem, date);
 };
 
-seizeOrderUrl = function (orderNumber) {
+function seizeOrderUrl (orderNumber) {
   // TODO: move to settings
   return `http://ultima.uk.to/sched.php?id=${orderNumber}`;
 };
 
+function getOrderStatus (settings, logger, request, order, date, positive_callback) {
+  let orderNumber = getOrderNumber(order);
+  data = {
+    url: settings.get('orders.details_url'),
+    qs: { 'id': orderNumber }
+  };
+  let start_time = DateTime.local();
+  request.get(data, function (error, response, body) {
+    if (error) {
+      // TODO: move to function
+      logger.log('error:', error); // Print the error if one occurred
+      logger.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
+      return null;
+    }
+    util.printDuration(
+      0,
+      start_time,
+      DateTime.local(),
+      `order (${orderNumber}) status query`
+    );
+    let $$ = $.load(body);
+    selector = '#body > table:nth-child(12) > tbody > tr > td > h3';
+
+    $details_header = $$(selector);
+    header_text = $details_header.text().toLowerCase();
+    statuses = settings.get('orders.statuses');
+    result = statuses.some(status => header_text.includes(status.toLowerCase()));
+
+    if (result)
+    {
+      logger.log(`POSITIVE STATUS: ${orderNumber}, ${result}, ${header_text}`);
+      positive_callback(order, date);
+    }
+  });
+};
+
 let parser = function (history_manager, request, settings, logger) {
   historyManager = history_manager;
+  // TODO: remove
   settings_global = settings;
 
   this.getOrdersUpdates = function (attempt, callback, date = DateTime.local()) {
     data = {
       url: settings.get('orders.url'),
-      qs: { 'date': util.formatDate(date) }
+      qs: { 'date': util.formatDateForOrdersQuery(date) }
     };
     let start_time = DateTime.local();
     request.get(data, function (error, response, body) {
@@ -72,18 +111,19 @@ let parser = function (history_manager, request, settings, logger) {
         logger.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
         return null;
       }
-      let end_time = DateTime.local();
-      request_duration = end_time.diff(start_time, ['seconds', 'milliseconds']);
-      logger.log(`request attempt ${attempt} duration: ${request_duration.toFormat('s.SS')}`);
+      util.printDuration(
+        attempt,
+        start_time,
+        DateTime.local(),
+        `getOrdersUpdates(${util.formatDateForOrdersQuery(date)})`
+      );
       let $$ = $.load(body);
       selector = '#body > table:nth-child(2) > tbody > tr > td > table:nth-child(6) > tbody';
 
       $orders_tbody = $$(selector);
       $orders = $orders_tbody.children('tr');
-      // historyManager.readOrdersHistory(date);
-      // logger.log(`getOrdersUpdates. before filter: ${$orders.length}`);
-      $orders = $orders.filter(filterOrders);
-      // logger.log(`getOrdersUpdates. after filter: ${$orders.length}`);
+      logger.log(`current orders attempt ${attempt} for ${date.toFormat(constants.DATE_FORMAT)} (${$orders.length})`);
+      $orders = $orders.filter((i, elem) => { return filterOrders(i, elem, date); });
 
       callback(attempt, settings, $orders, date);
     });
@@ -128,6 +168,10 @@ let parser = function (history_manager, request, settings, logger) {
       }
     };
   };
+
+  // this.getOrderStatus = (orderNumber) => { getOrderStatus(settings, logger, request, orderNumber); };
+
+  this.filterByStatus = (orders, date, positive_callback) => filterByStatus(settings, logger, request, orders, date, positive_callback);
 };
 
 module.exports = parser;

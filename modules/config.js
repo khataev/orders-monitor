@@ -66,6 +66,18 @@ const config = convict({
         default: 24,
         env: "ORDERS_FILTER_HOURS_TO"
       }
+    },
+    details_url: {
+      doc: "Url of order detailed information, including status",
+      format: "url",
+      default: "",
+      env: "ORDERS_DETAILS_URL"
+    },
+    statuses: {
+      doc: "List of order statuses to be sent to bot's channel. Case is ignored",
+      format: Array,
+      default: [],
+      env: "ORDERS_STATUSES"
     }
   },
   credentials: {

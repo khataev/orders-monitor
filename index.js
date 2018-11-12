@@ -92,44 +92,59 @@ function logIn(settings, callback) {
   });
 }
 
+function positiveStatusCallback(order_row, date) {
+  sendOrderToTelegram(order_row, date);
+  historyManager.saveOrderToHistory(
+    parserApi.getOrderNumber(order_row),
+    date
+  );
+}
+
+// TODO: add date hoisting instead of piping through all callback chain
 function getOrderUpdatesCallback(attempt, settings, orders, date) {
-  logger.log(`new orders attempt: ${attempt} for ${date.toFormat(constants.DATE_FORMAT)} (${orders.length})`);
+  logger.log(`filtered orders attempt ${attempt} for ${date.toFormat(constants.DATE_FORMAT)} (${orders.length})`);
+  parserApi.filterByStatus(orders, date, positiveStatusCallback);
   // send to telega
-  sendOrdersToTelegram(settings, orders, date);
-  historyManager.saveRawOrdersToHistory(orders, date);
+  // sendOrdersToTelegram(settings, orders, date);
+  // historyManager.saveRawOrdersToHistory(orders, date);
 }
 
 async function startUpdatesPolling(settings) {
   let update_interval = settings.get('orders.update_interval') * 1000;
-  let tomorrow = DateTime.local().plus({ days: 1 });
   let attempt = 0;
   while(true) {
     attempt = attempt + 1;
-    let dt_string = DateTime.local().toISO();
-    logger.log(`GETTING UPDATES, attempt: ${attempt} at: ${dt_string}`);
-    parserApi.getOrdersUpdates(attempt, getOrderUpdatesCallback);
+    let now = DateTime.local();
+    let tomorrow = DateTime.local().plus({ days: 1 });
+    let dt_string = now.toISO();
+    logger.log(`GETTING UPDATES, attempt ${attempt} at: ${dt_string}`);
+    // historyManager.printGlobalHistory();
+    parserApi.getOrdersUpdates(attempt, getOrderUpdatesCallback, now);
     parserApi.getOrdersUpdates(attempt, getOrderUpdatesCallback, tomorrow);
 
     await util.sleep(update_interval);
   }
 }
 
+async function sendOrderToTelegram (order_row, date) {
+  let orderNumber = parserApi.getOrderNumber(order_row);
+  const replyMarkup = parserApi.getReplyMarkupBotApi(orderNumber);
+  let text = parserApi.renderOrderData(order_row);
+// TODO: remove debug
+  await telegramApi.sendToTelegram(settings, `local bot: ${text}`, replyMarkup, date);
+}
+
+// HINT: not used anymore
 async function sendOrdersToTelegram(settings, orders, date = DateTime.local()) {
   await util.asyncForEach(orders, async function(i, elem) {
-    let orderNumber = parserApi.getOrderNumber(elem);
-    const replyMarkup = parserApi.getReplyMarkupBotApi(orderNumber);
-    let text = parserApi.renderOrderData(elem);
-// TODO: remove debug
-    await telegramApi.sendToTelegram(settings, `local bot: ${text}`, replyMarkup, date);
+    sendOrderToTelegram(elem, date);
   });
 }
 
 function test_run() {
   if (settings) {
 
-    var end = DateTime.fromISO('2017-03-15');
-    var start = DateTime.fromISO('2017-02-12');
-    console.log(end.diff(start, ['seconds', 'milliseconds']).toFormat('s.SS'));
+    logIn(settings, (settings) => {parserApi.getOrderStatus(47703698);});
 
     // const Sequelize = require('sequelize');
     // const database = require('./config/database');

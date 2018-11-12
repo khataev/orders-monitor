@@ -96,7 +96,8 @@ let telegram = function(settings, logger) {
 
     let bot = util.isToday(date) ? bot_today : bot_tomorrow;
     bot.sendMessage(sanitized_chat_id, sanitized_text, reply_markup_object).then(function () {
-      logger.log(`sendMessageToSubscriber. SEND! chat_id: ${sanitized_chat_id}, text: ${sanitized_text.substr(0, 20)}...`);
+      // TODO: move to settings
+      logger.log(`sendMessageToSubscriber. SEND! chat_id: ${sanitized_chat_id}, text: ${sanitized_text.substr(0, 50)}...`);
     });
 
     await util.sleep(delay);
