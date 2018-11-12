@@ -7,5 +7,6 @@ module.exports = {
     database: config.get('db.database'),
     host: config.get('db.host'),
     dialect: config.get('db.dialect')
-  }
+  },
+  production: config.get('db.url')
 };

@@ -112,7 +112,7 @@ function saveOrdersToHistory(history, orders, date = DateTime.local()) {
 function saveOrderToHistory(orderNumber, date) {
   date_key = date.toFormat(constants.ORDERS_HISTORY_DATE_FORMAT);
   history_key = getHistoryKeySimple(date_key, orderNumber);
-  logger.log.log(`check before save history ${history_key} ${global_history[history_key] && global_history[history_key].orderNumber}`);
+  logger.log(`check before save history ${history_key} ${global_history[history_key] && global_history[history_key].orderNumber}`);
   if (!global_history[history_key]) {
     order = buildOrder(date_key, orderNumber);
     global_history[history_key] = order;

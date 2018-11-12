@@ -63,6 +63,8 @@ function run() {
       .initOrdersHistory()
       .then(orders => { console.log('INIT ORDERS HISTORY COMPLETE'); })
       .then(result => {
+        statuses = settings.get('orders.statuses');
+        logger.log(statuses);
         logIn(settings, startUpdatesPolling);
       });
   }

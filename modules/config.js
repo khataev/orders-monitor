@@ -38,6 +38,12 @@ const config = convict({
       format: String,
       default: "postgres",
       env: "DB_DIALECT"
+    },
+    url: {
+      doc: "url",
+      format: String,
+      default: "",
+      env: "DATABASE_URL"
     }
   },
   orders: {
