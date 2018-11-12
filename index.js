@@ -100,6 +100,7 @@ function positiveStatusCallback(order_row, date) {
     parserApi.getOrderNumber(order_row),
     date
   );
+  historyManager.releaseProcessingOrderRow(order_row);
 }
 
 // TODO: add date hoisting instead of piping through all callback chain
@@ -133,7 +134,12 @@ async function sendOrderToTelegram (order_row, date) {
   const replyMarkup = parserApi.getReplyMarkupBotApi(orderNumber);
   let text = parserApi.renderOrderData(order_row);
 // TODO: remove debug
-  await telegramApi.sendToTelegram(settings, `local bot: ${text}`, replyMarkup, date);
+  if (settings.get('env') == 'production') {
+    await telegramApi.sendToTelegram(settings, text, replyMarkup, date);
+  }
+  else {
+    await telegramApi.sendToTelegram(settings, `local bot: ${text}`, replyMarkup, date);
+  }
 }
 
 // HINT: not used anymore

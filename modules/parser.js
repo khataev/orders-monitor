@@ -17,6 +17,10 @@ function filterOnlyOrders (i, elem) {
   return i > 0;
 };
 
+function filterLocked (i, elem) {
+  return !historyManager.checkProcessingOrder(getOrderNumber(elem));
+};
+
 function filterByTime (i, elem) {
   let from_hour = settings_global.get('orders.filter_hours.from'),
     to_hour = settings_global.get('orders.filter_hours.to');
@@ -49,6 +53,7 @@ function filterByHistory (i, elem, date) {
 
 function filterOrders (i, elem, date) {
   return filterOnlyOrders(i, elem) &&
+    filterLocked(i, elem) &&
     filterByTime(i, elem) &&
     filterByHistory(i, elem, date);
 };
@@ -125,6 +130,7 @@ let parser = function (history_manager, request, settings, logger) {
       logger.log(`current orders attempt ${attempt} for ${date.toFormat(constants.DATE_FORMAT)} (${$orders.length})`);
       $orders = $orders.filter((i, elem) => { return filterOrders(i, elem, date); });
 
+      historyManager.lockProcessingOrders($orders);
       callback(attempt, settings, $orders, date);
     });
   };
