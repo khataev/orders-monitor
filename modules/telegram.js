@@ -4,6 +4,8 @@ const util = require('./util');
 
 const Bot = require('node-telegram-bot-api');
 
+let message_prepender;
+
 let today_token,
   tomorrow_token,
   bot_tomorrow,
@@ -13,7 +15,8 @@ let telegram = function(settings, logger) {
   let today_token = settings.get('credentials.telegram_bot.today.api_token'),
     tomorrow_token = settings.get('credentials.telegram_bot.tomorrow.api_token'),
     bot_tomorrow = new Bot(tomorrow_token, { polling: false }),
-    bot_today = new Bot(today_token, { polling: false });
+    bot_today = new Bot(today_token, { polling: false }),
+    message_prepender = settings.get('debug.message_prepender');
 
   this.mapGetUpdatesElement = function (elem) {
     console.log('mapGetUpdatesElement', elem);
@@ -89,7 +92,7 @@ let telegram = function(settings, logger) {
     if (isNaN(sanitized_chat_id)) {
       logger.log('chat_id is empty');
     }
-    let sanitized_text = util.sanitizeText(text);
+    let sanitized_text = util.sanitizeText(`${message_prepender}${text}`.trim());
     let delay = this.getDelayBetweenRequests();
     // let url = `https://api.telegram.org/bot${api_token}/sendMessage?chat_id=${chat_id}&text=${encoded_text}`;
     logger.log(`sendMessageToSubscriber. chat_id: ${sanitized_chat_id}, text: ${sanitized_text}`);

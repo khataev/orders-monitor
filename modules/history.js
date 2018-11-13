@@ -1,5 +1,4 @@
 const { DateTime } = require('luxon');
-const cheerio = require('cheerio');
 const Sequelize = require('sequelize');
 const Op = Sequelize.Op;
 
@@ -9,39 +8,18 @@ const database = require('./../config/database');
 let logger;
 let sequelize;
 let Order;
-let parser;
 
 let global_history = {};
 let processing_orders = {};
-
-// TODO: refactor these parser duplicates (add html table to array converter)
-function getColumnText(order_row, column_number) {
-  return cheerio(order_row).children('td').eq(column_number).text();
-};
-
-function getOrderNumber(order_row) {
-  return getColumnText(order_row, 1);
-};
 
 function lockProcessingOrder(orderNumber) {
   logger.log(`LOCK ProcessingOrder: ${orderNumber}`);
   processing_orders[orderNumber] = true;
 }
 
-function lockProcessingOrders(orders_element) {
-  // assume cheerio element
-  orders_element.each((i, order_row) => {
-    lockProcessingOrder(getOrderNumber(order_row))
-  });
-}
-
 function releaseProcessingOrder(orderNumber) {
   logger.log(`RELEASE ProcessingOrder: ${orderNumber}`);
   delete processing_orders[orderNumber];
-}
-
-function releaseProcessingOrderRow(order_row) {
-  releaseProcessingOrder(getOrderNumber(order_row));
 }
 
 function checkProcessingOrder(orderNumber) {
@@ -207,10 +185,9 @@ let history = function(settings, log) {
 
   this.printGlobalHistory = printGlobalHistory;
 
-  this.lockProcessingOrders = lockProcessingOrders;
+  this.lockProcessingOrder = lockProcessingOrder;
 
-  // this.releaseProcessingOrder = releaseProcessingOrder;
-  this.releaseProcessingOrderRow = releaseProcessingOrderRow;
+  this.releaseProcessingOrder = releaseProcessingOrder;
 
   this.checkProcessingOrder = checkProcessingOrder;
 };

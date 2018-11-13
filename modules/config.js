@@ -13,31 +13,31 @@ const config = convict({
       doc: "username",
       format: String,
       default: "",
-      env: "DB_USERNAME"
+      env: "DATABASE_USERNAME"
     },
     password: {
       doc: "password",
       format: String,
       default: "",
-      env: "DB_PASSWORD"
+      env: "DATABASE_PASSWORD"
     },
     database: {
       doc: "database",
       format: String,
       default: "",
-      env: "DB_DATABASE"
+      env: "DATABASE_DATABASE"
     },
     host: {
       doc: "host",
       format: String,
       default: "127.0.0.1",
-      env: "DB_HOST"
+      env: "DATABASE_HOST"
     },
     dialect: {
       doc: "dialect",
       format: String,
       default: "postgres",
-      env: "DB_DIALECT"
+      env: "DATABASE_DIALECT"
     },
     url: {
       doc: "url",
@@ -136,6 +136,14 @@ const config = convict({
         default: [],
         env: "CREDENTIALS_TELEGRAM_BOT_CHAT_IDS"
       }
+    }
+  },
+  debug: {
+    message_prepender: {
+      doc: "Text to prepend every message with",
+      format: String,
+      default: "",
+      env: "DEBUG_MESSAGE_PREPENDER"
     }
   }
 });

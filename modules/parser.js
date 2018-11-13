@@ -63,6 +63,13 @@ function seizeOrderUrl (orderNumber) {
   return `http://ultima.uk.to/sched.php?id=${orderNumber}`;
 };
 
+function lockProcessingOrderRows(orders_element) {
+  // assume cheerio element
+  orders_element.each((i, order_row) => {
+    historyManager.lockProcessingOrder(getOrderNumber(order_row))
+  });
+}
+
 function getOrderStatus (settings, logger, request, order, date, positive_callback) {
   let orderNumber = getOrderNumber(order);
   data = {
@@ -130,7 +137,7 @@ let parser = function (history_manager, request, settings, logger) {
       logger.log(`current orders attempt ${attempt} for ${date.toFormat(constants.DATE_FORMAT)} (${$orders.length})`);
       $orders = $orders.filter((i, elem) => { return filterOrders(i, elem, date); });
 
-      historyManager.lockProcessingOrders($orders);
+      lockProcessingOrderRows($orders);
       callback(attempt, settings, $orders, date);
     });
   };
