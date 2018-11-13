@@ -64,29 +64,7 @@ function initOrdersHistory() {
   });
 }
 
-// TODO: unneded
-// function writeHistory(history) {
-//   onFulfilled = function (result) {
-//     logger.log('SAVED');
-//   };
-//
-//   onRejected = function (error) {
-//     logger.log(`writeHistory error ${error.message}`);
-//   };
-//
-//   console.log(history_key);
-//   for (var order_number_key in history) {
-//     if (history.hasOwnProperty(order_number_key)) {
-//       order = history[order_number_key];
-//       order
-//         .save()
-//         .then(onFulfilled, onRejected);
-//       // .finally(() => order.sequelize.close());
-//     }
-//   }
-//
-// };
-
+// TODO: how we do it now?
 function deleteOldHistory(cutoff_date = DateTime.local()) {
   result = Order.destroy({
     where: {
@@ -114,16 +92,6 @@ function createOrder(date_key, order_number) {
     .save()
     .finally((order) => Order.sequelize.close());
 }
-
-// HINT: not used anymore
-function saveOrdersToHistory(history, orders, date = DateTime.local()) {
-  if (!history)
-    history = {};
-
-  orders.forEach(function(order_number){
-    saveOrderToHistory(order_number, date)
-  });
-};
 
 function saveOrderToHistory(orderNumber, date) {
   date_key = date.toFormat(constants.ORDERS_HISTORY_DATE_FORMAT);
@@ -154,19 +122,6 @@ let history = function(settings, log) {
   this.initOrdersHistory = initOrdersHistory;
 
   this.saveOrderToHistory = saveOrderToHistory;
-
-  // this.saveOrdersToHistory = saveOrdersToHistory;
-
-  // HINT: not used anymore
-  this.saveRawOrdersToHistory = function(orders, date = DateTime.local()) {
-    let result = cheerio(orders).map(function(i, elem) {
-      // logger.log(cheerio(elem).children('td').eq(1).text());
-      return cheerio(elem).children('td').eq(1).text();
-    });
-    this.saveOrdersToHistory(global_history, Array.from(result), date);
-  };
-
-  // this.writeHistory = writeHistory;
 
   // TODO: call once a day
   this.deleteOldHistory = deleteOldHistory;

@@ -182,9 +182,16 @@ let parser = function (history_manager, request, settings, logger) {
     };
   };
 
-  // this.getOrderStatus = (orderNumber) => { getOrderStatus(settings, logger, request, orderNumber); };
-
-  this.filterByStatus = (orders, date, positive_callback) => filterByStatus(settings, logger, request, orders, date, positive_callback);
+  this.filterByStatus =
+    (orders, date, positive_callback) =>
+      filterByStatus(
+        settings,
+        logger,
+        request,
+        orders,
+        date,
+        positive_callback
+      );
 };
 
 module.exports = parser;

@@ -1,6 +1,4 @@
-const yaml = require('js-yaml');
 const requestGlobal = require('request');
-const fs = require('fs');
 const { DateTime } = require('luxon');
 const express = require('express');
 
@@ -49,7 +47,7 @@ function start_express_server() {
       let host = server.address().address;
       let port = server.address().port;
 
-      console.log('Web server started at http://%s:%s', host, port);
+      logger.log('Web server started at http://%s:%s', host, port);
     });
   }
 }
