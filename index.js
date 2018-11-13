@@ -83,10 +83,9 @@ function logIn(settings, callback) {
 
   request.post(data, function (error, response, body) {
     if (error) {
-      logger.log('error:', error); // Print the error if one occurred
-      logger.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
-      // logger.log('body:', body); // Print the HTML for the Google homepage.
-      // logger.writeToFile(body, 'log/login.html');
+      util.log_request_error(error, response);
+      return;
+      // TODO: shutdown function
     }
     callback(settings);
   });

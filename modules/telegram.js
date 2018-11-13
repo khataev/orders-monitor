@@ -32,8 +32,7 @@ let telegram = function(settings, logger) {
       let params = { url: url };
       request.post(params, function (error, response, body) {
         if (error) {
-          logger.log(`error: ${error}`); // Print the error if one occurred
-          logger.log(`statusCode: ${response && response.statusCode}`); // Print the response status code if a response was received
+          util.log_request_error(error, response);
           reject(error);
         }
         else {
@@ -77,8 +76,7 @@ let telegram = function(settings, logger) {
     }, function(error, response, body) {
       logger.log(`sendMessageToSubscriber. SEND! chat_id: ${chat_id}, text: ${sanitized_text}`);
       if (error) {
-        logger.log(`sendMessageToSubscriber. error: ${error}`); // Print the error if one occurred
-        logger.log(`sendMessageToSubscriber. statusCode: ${response && response.statusCode}`); // Print the response status code if a response was received
+        util.log_request_error(error, response);
       }
     });
 
