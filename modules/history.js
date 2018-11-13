@@ -13,23 +13,24 @@ let global_history = {};
 let processing_orders = {};
 
 function lockProcessingOrder(orderNumber) {
-  logger.log(`LOCK ProcessingOrder: ${orderNumber}`);
+  // logger.log(`LOCK ProcessingOrder: ${orderNumber}`);
   processing_orders[orderNumber] = true;
 }
 
 function releaseProcessingOrder(orderNumber) {
-  logger.log(`RELEASE ProcessingOrder: ${orderNumber}`);
+  // logger.log(`RELEASE ProcessingOrder: ${orderNumber}`);
   delete processing_orders[orderNumber];
 }
 
 function checkProcessingOrder(orderNumber) {
   let result = !!processing_orders[orderNumber];
-  logger.log(`CHECK ProcessingOrder: ${orderNumber}, ${result}`);
+  if (result)
+    logger.log(`CHECK ProcessingOrder: ${orderNumber}, ${result}`);
   return result;
 }
 
 function printHistory(history) {
-  console.log('printing');
+  console.log('printing history');
   for (var order_number_key in history) {
     if (history.hasOwnProperty(order_number_key)){
       order = history[order_number_key];
@@ -96,11 +97,11 @@ function createOrder(date_key, order_number) {
 function saveOrderToHistory(orderNumber, date) {
   date_key = date.toFormat(constants.ORDERS_HISTORY_DATE_FORMAT);
   history_key = getHistoryKeySimple(date_key, orderNumber);
-  logger.log(`check before save history ${history_key} ${global_history[history_key] && global_history[history_key].orderNumber}`);
+  // logger.log(`check before save history ${history_key} ${global_history[history_key] && global_history[history_key].orderNumber}`);
   if (!global_history[history_key]) {
     order = buildOrder(date_key, orderNumber);
     global_history[history_key] = order;
-    logger.log(`save to history ${history_key}: ${order.orderNumber}`);
+    // logger.log(`save to history ${history_key}: ${order.orderNumber}`);
     order
       .save();
     // .finally(() => order.sequelize.close());

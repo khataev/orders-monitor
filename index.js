@@ -52,7 +52,6 @@ function start_express_server() {
   }
 }
 
-// TODO: обработка разлогинивания раз в час ??
 function run() {
   if (settings) {
     start_express_server();
@@ -61,8 +60,7 @@ function run() {
       .initOrdersHistory()
       .then(orders => { console.log('INIT ORDERS HISTORY COMPLETE'); })
       .then(result => {
-        statuses = settings.get('orders.statuses');
-        logger.log(statuses);
+        // logger.log(settings.get('orders.statuses'));
         logIn(settings, startUpdatesPolling);
       });
   }
@@ -102,13 +100,9 @@ function positiveStatusCallback(order_row, date) {
   );
 }
 
-// TODO: add date hoisting instead of piping through all callback chain
 function getOrderUpdatesCallback(attempt, settings, orders, date) {
   logger.log(`filtered orders attempt ${attempt} for ${date.toFormat(constants.DATE_FORMAT)} (${orders.length})`);
   parserApi.filterByStatus(orders, date, positiveStatusCallback);
-  // send to telega
-  // sendOrdersToTelegram(settings, orders, date);
-  // historyManager.saveRawOrdersToHistory(orders, date);
 }
 
 async function startUpdatesPolling(settings) {
@@ -134,13 +128,6 @@ async function sendOrderToTelegram (order_row, date) {
   let text = parserApi.renderOrderData(order_row);
 
   await telegramApi.sendToTelegram(settings, text, replyMarkup, date);
-}
-
-// HINT: not used anymore
-async function sendOrdersToTelegram(settings, orders, date = DateTime.local()) {
-  await util.asyncForEach(orders, async function(i, elem) {
-    sendOrderToTelegram(elem, date);
-  });
 }
 
 function test_run() {

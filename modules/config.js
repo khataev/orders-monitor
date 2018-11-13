@@ -144,6 +144,12 @@ const config = convict({
       format: String,
       default: "",
       env: "DEBUG_MESSAGE_PREPENDER"
+    },
+    sent_message_log_length: {
+      doc: "Length of a sent message in a log (crop if exceeds)",
+      format: "int",
+      default: 50,
+      env: "DEBUG_SENT_MESSAGE_LOG_LENGTH"
     }
   }
 });

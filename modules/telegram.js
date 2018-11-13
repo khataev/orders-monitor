@@ -4,12 +4,11 @@ const util = require('./util');
 
 const Bot = require('node-telegram-bot-api');
 
-let message_prepender;
+let sent_message_log_length;
 
-let today_token,
-  tomorrow_token,
-  bot_tomorrow,
-  bot_today;
+function cropSentMessage(message) {
+  return `${message.substr(0, sent_message_log_length)}...`;
+}
 
 let telegram = function(settings, logger) {
   let today_token = settings.get('credentials.telegram_bot.today.api_token'),
@@ -17,6 +16,7 @@ let telegram = function(settings, logger) {
     bot_tomorrow = new Bot(tomorrow_token, { polling: false }),
     bot_today = new Bot(today_token, { polling: false }),
     message_prepender = settings.get('debug.message_prepender');
+  sent_message_log_length = settings.get('debug.sent_message_log_length');
 
   this.mapGetUpdatesElement = function (elem) {
     console.log('mapGetUpdatesElement', elem);
@@ -66,11 +66,11 @@ let telegram = function(settings, logger) {
     let sanitized_text = util.sanitizeText(text);
     let encoded_text = encodeURI(sanitized_text);
     let encoded_reply_markup = encodeURI(JSON.stringify(reply_markup_object));
+    // TODO parameters as hash ??
     let url = `https://api.telegram.org/bot${api_token}/sendMessage?chat_id=${chat_id}&text=${encoded_text}&reply_markup=${encoded_reply_markup}`;
     // let url = `https://api.telegram.org/bot${api_token}/sendMessage?chat_id=${chat_id}&text=${encoded_text}`;
     logger.log(`sendMessage url: ${url}`);
     logger.log(`sendMessageToSubscriber. chat_id: ${chat_id}, text: ${sanitized_text}`);
-    // TODO parameters as hash
     request.post({
       url: url
     }, function(error, response, body) {
@@ -98,7 +98,9 @@ let telegram = function(settings, logger) {
     let bot = util.isToday(date) ? bot_today : bot_tomorrow;
     bot.sendMessage(sanitized_chat_id, sanitized_text, reply_markup_object).then(function () {
       // TODO: move to settings
-      logger.log(`sendMessageToSubscriber. SEND! chat_id: ${sanitized_chat_id}, text: ${sanitized_text.substr(0, 50)}...`);
+      logger.log(
+        `sendMessageToSubscriber. SEND! chat_id: ${sanitized_chat_id}, text: ${cropSentMessage(sanitized_text)}`
+      );
     });
 
     await util.sleep(delay);
