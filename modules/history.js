@@ -13,19 +13,19 @@ let global_history = {};
 let processing_orders = {};
 
 function lockProcessingOrder(orderNumber) {
-  // logger.log(`LOCK ProcessingOrder: ${orderNumber}`);
+  logger.log(`LOCK ProcessingOrder: ${orderNumber}`, 'debug');
   processing_orders[orderNumber] = true;
 }
 
 function releaseProcessingOrder(orderNumber) {
-  // logger.log(`RELEASE ProcessingOrder: ${orderNumber}`);
+  logger.log(`RELEASE ProcessingOrder: ${orderNumber}`, 'debug');
   delete processing_orders[orderNumber];
 }
 
 function checkProcessingOrder(orderNumber) {
   let result = !!processing_orders[orderNumber];
-  if (result)
-    logger.log(`CHECK ProcessingOrder: ${orderNumber}, ${result}`);
+  logger.log(`CHECK ProcessingOrder: ${orderNumber}, ${result}`, 'debug');
+
   return result;
 }
 

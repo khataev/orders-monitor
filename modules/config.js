@@ -150,6 +150,17 @@ const config = convict({
       format: "int",
       default: 50,
       env: "DEBUG_SENT_MESSAGE_LOG_LENGTH"
+    },
+    log_level: {
+      doc: "Log level",
+      format: function check(val) {
+        regexp = /debug|info/i;
+        if(!regexp.test(val)) {
+          throw new Error(`Unpermitted log level: ${val}`);
+        }
+      },
+      default: 'info',
+      env: "DEBUG_LOG_LEVEL"
     }
   }
 });

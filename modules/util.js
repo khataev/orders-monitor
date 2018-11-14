@@ -46,9 +46,9 @@ let util = function() {
 
   this.log_request_error = function (response, error) {
     // Print the error if one occurred
-    logger.log('error:', error);
+    logger.log(`error: ${error}`);
     // Print the response status code if a response was received
-    logger.log('statusCode:', response && response.statusCode);
+    logger.log(`statusCode: ${response && response.statusCode}`);
   }
 
 };
