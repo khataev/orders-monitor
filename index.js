@@ -22,15 +22,15 @@ function start_simple_server() {
     const http = require('http')
     let port = process.env.PORT || 80;
     const server = http.createServer((request, response) => {
-      console.log(request.url);
+      logger.log(request.url);
       response.end('Hello Node.js Server!');
     });
 
     server.listen(port, (err) => {
       if (err) {
-        return console.log('something bad happened', err);
+        return logger.log(`something bad happened: ${err}`);
       }
-      console.log(`server is listening on ${port}`);
+      logger.log(`server is listening on ${port}`);
     })
   }
 }
@@ -47,7 +47,7 @@ function start_express_server() {
       let host = server.address().address;
       let port = server.address().port;
 
-      logger.log('Web server started at http://%s:%s', host, port);
+      logger.log(`Web server started at http:${host}:${port}`);
     });
   }
 }
@@ -58,7 +58,7 @@ function run() {
 
     historyManager
       .initOrdersHistory()
-      .then(orders => { console.log('INIT ORDERS HISTORY COMPLETE'); })
+      .then(orders => { logger.log('INIT ORDERS HISTORY COMPLETE'); })
       .then(result => {
         // logger.log(settings.get('orders.statuses'));
         logIn(settings, startUpdatesPolling);
@@ -89,6 +89,7 @@ function logIn(settings, callback) {
   });
 }
 
+// used when order is in accounting status (and should be sent to telegram)
 function positiveStatusCallback(order_row, date) {
   sendOrderToTelegram(order_row, date);
   historyManager.saveOrderToHistory(
@@ -100,9 +101,21 @@ function positiveStatusCallback(order_row, date) {
   );
 }
 
+// for other cases, when we ignore this order
+function negativeStatusCallback(order_row) {
+  historyManager.releaseProcessingOrder(
+    parserApi.getOrderNumber(order_row)
+  );
+}
+
 function getOrderUpdatesCallback(attempt, settings, orders, date) {
   logger.log(`filtered orders attempt ${attempt} for ${date.toFormat(constants.DATE_FORMAT)} (${orders.length})`);
-  parserApi.filterByStatus(orders, date, positiveStatusCallback);
+  parserApi.filterByStatus(
+    orders,
+    date,
+    positiveStatusCallback,
+    negativeStatusCallback
+  );
 }
 
 async function startUpdatesPolling(settings) {

@@ -35,10 +35,18 @@ function filterByTime (i, elem) {
   }
 };
 
-function filterByStatus (settings, logger, request, orders, date, positive_callback) {
+function filterByStatus (settings, logger, request, orders, date, positive_callback, negative_callback) {
   $(orders).each((i, order) => {
     // console.log('GET ORDER STATUS', getOrderNumber(elem));
-    getOrderStatus(settings, logger, request, order, date, positive_callback)
+    getOrderStatus(
+      settings,
+      logger,
+      request,
+      order,
+      date,
+      positive_callback,
+      negative_callback
+    );
   });
 };
 
@@ -66,7 +74,7 @@ function lockProcessingOrderRows(orders_element) {
   });
 }
 
-function getOrderStatus (settings, logger, request, order, date, positive_callback) {
+function getOrderStatus (settings, logger, request, order, date, positive_callback, negative_callback) {
   let orderNumber = getOrderNumber(order);
   data = {
     url: settings.get('orders.details_url'),
@@ -92,10 +100,12 @@ function getOrderStatus (settings, logger, request, order, date, positive_callba
     statuses = settings.get('orders.statuses');
     result = statuses.some(status => header_text.includes(status.toLowerCase()));
 
-    if (result)
-    {
+    if (result) {
       logger.log(`POSITIVE STATUS: ${orderNumber}, ${result}, ${header_text}`);
       positive_callback(order, date);
+    }
+    else {
+      negative_callback(order);
     }
   });
 };
@@ -177,14 +187,15 @@ let parser = function (history_manager, request, settings, logger) {
   };
 
   this.filterByStatus =
-    (orders, date, positive_callback) =>
+    (orders, date, positive_callback, negative_callback) =>
       filterByStatus(
         settings,
         logger,
         request,
         orders,
         date,
-        positive_callback
+        positive_callback,
+        negative_callback
       );
 };
 
