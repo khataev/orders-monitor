@@ -64,7 +64,7 @@ function filterOrders (i, elem, date) {
 };
 
 function seizeOrderUrl (orderNumber) {
-  return `${orders_url}?id=${orderNumber}`;
+  return `${orders_url.trim()}?id=${orderNumber}`;
 };
 
 function lockProcessingOrderRows(orders_element) {
