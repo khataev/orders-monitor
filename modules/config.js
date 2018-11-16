@@ -91,6 +91,7 @@ const config = convict({
       login_url: {
         doc: "Page with orders",
         format: "url",
+        // HINT: remember, that it should end with login.php ;)
         default: "http://example.com",
         env: "CREDENTIALS_PERSONAL_CABINET_LOGIN_URL",
       },
