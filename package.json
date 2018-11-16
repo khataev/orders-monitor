@@ -6,7 +6,12 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node index.js",
-    "history:purge": "node ./modules/scripts.js"
+    "history:delete_old": "node ./modules/scripts.js history:delete_old",
+    "history:purge": "node ./modules/scripts.js history:purge",
+    "history:backup": "node ./modules/scripts.js history:backup",
+    "history:restore": "node ./modules/scripts.js history:restore",
+    "db:migrate": "node_modules/.bin/sequelize db:migrate",
+    "db:migrate:undo": "node_modules/.bin/sequelize db:migrate:undo"
   },
   "author": "Andrey Khataev",
   "license": "ISC",

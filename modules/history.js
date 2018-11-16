@@ -8,6 +8,7 @@ const database = require('./../config/database');
 let logger;
 let sequelize;
 let Order;
+let OrderBackup;
 
 let global_history = {};
 let processing_orders = {};
@@ -65,18 +66,14 @@ function initOrdersHistory() {
   });
 }
 
-// TODO: how we do it now?
 function deleteOldHistory(cutoff_date = DateTime.local()) {
-  result = Order.destroy({
+  return Order.destroy({
     where: {
       date: {
         [Op.lt]: cutoff_date.toJSDate()
       }
     }
   });
-    // .finally( () => Order.sequelize.close());
-
-  return result;
 };
 
 function buildOrder(date_key, order_number) {
@@ -104,7 +101,6 @@ function saveOrderToHistory(orderNumber, date) {
     // logger.log(`save to history ${history_key}: ${order.orderNumber}`);
     order
       .save();
-    // .finally(() => order.sequelize.close());
   }
 }
 
@@ -118,7 +114,9 @@ function dayHistoryIncludes(date, order_number) {
 let history = function(settings, log) {
   logger = log;
   sequelize = new Sequelize(database[settings.get('env')]);
+  // TODO: import all models at once
   Order = sequelize.import("./../models/order");
+  OrderBackup = sequelize.import("./../models/orderbackup");
 
   this.initOrdersHistory = initOrdersHistory;
 
@@ -128,11 +126,39 @@ let history = function(settings, log) {
   this.deleteOldHistory = deleteOldHistory;
 
   this.purgeHistory = function() {
-    Order.destroy({
+    return Order.destroy({
       where: {},
       truncate: true
-    })
-      .finally( () => Order.sequelize.close());
+    });
+  };
+
+  this.purgeHistoryBackup = function() {
+    return OrderBackup.destroy({
+      where: {},
+      truncate: true
+    });
+  };
+
+  this.backupHistory = function() {
+    return this.purgeHistoryBackup()
+      .then(() => {
+        sequelize.query(
+          'INSERT INTO "OrderBackups" (date, "orderNumber", "createdAt", "updatedAt") SELECT date, "orderNumber", "createdAt", "updatedAt" FROM "Orders"'
+        ).spread((results, metadata) => {});
+      });
+  };
+
+  this.restoreHistory = function () {
+    return this.purgeHistory()
+      .then(() => {
+        sequelize.query(
+          'INSERT INTO "Orders" (date, "orderNumber", "createdAt", "updatedAt") SELECT date, "orderNumber", "createdAt", "updatedAt" FROM "OrderBackups"'
+        ).spread((results, metadata) => {});
+      });
+  };
+
+  this.closeConnections = function() {
+    sequelize.close();
   };
 
   this.dayHistoryIncludes = dayHistoryIncludes;
