@@ -34,8 +34,21 @@ let util = function() {
       .replace(/\s{2,10}/g, ' ');
   };
 
-  this.formatDate = function (date) {
+  // move to parser
+  this.formatDateForOrdersQuery = function (date) {
     return date.toFormat(constants.DATE_FORMAT);
+  };
+
+  this.printDuration = function(attempt, start, end, custom_text) {
+    request_duration = end.diff(start, ['seconds', 'milliseconds']);
+    logger.log(`request ${custom_text} attempt ${attempt} duration: ${request_duration.toFormat('s.SS')}`);
+  };
+
+  this.log_request_error = function (response, error) {
+    // Print the error if one occurred
+    logger.log(`error: ${error}`);
+    // Print the response status code if a response was received
+    logger.log(`statusCode: ${response && response.statusCode}`);
   }
 
 };

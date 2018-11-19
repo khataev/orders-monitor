@@ -4,16 +4,19 @@ const util = require('./util');
 
 const Bot = require('node-telegram-bot-api');
 
-let today_token,
-  tomorrow_token,
-  bot_tomorrow,
-  bot_today;
+let sent_message_log_length;
+
+function cropSentMessage(message) {
+  return `${message.substr(0, sent_message_log_length)}...`;
+}
 
 let telegram = function(settings, logger) {
   let today_token = settings.get('credentials.telegram_bot.today.api_token'),
     tomorrow_token = settings.get('credentials.telegram_bot.tomorrow.api_token'),
     bot_tomorrow = new Bot(tomorrow_token, { polling: false }),
-    bot_today = new Bot(today_token, { polling: false });
+    bot_today = new Bot(today_token, { polling: false }),
+    message_prepender = settings.get('debug.message_prepender');
+  sent_message_log_length = settings.get('debug.sent_message_log_length');
 
   this.mapGetUpdatesElement = function (elem) {
     console.log('mapGetUpdatesElement', elem);
@@ -29,8 +32,7 @@ let telegram = function(settings, logger) {
       let params = { url: url };
       request.post(params, function (error, response, body) {
         if (error) {
-          logger.log(`error: ${error}`); // Print the error if one occurred
-          logger.log(`statusCode: ${response && response.statusCode}`); // Print the response status code if a response was received
+          util.log_request_error(error, response);
           reject(error);
         }
         else {
@@ -64,38 +66,41 @@ let telegram = function(settings, logger) {
     let sanitized_text = util.sanitizeText(text);
     let encoded_text = encodeURI(sanitized_text);
     let encoded_reply_markup = encodeURI(JSON.stringify(reply_markup_object));
+    // TODO parameters as hash ??
     let url = `https://api.telegram.org/bot${api_token}/sendMessage?chat_id=${chat_id}&text=${encoded_text}&reply_markup=${encoded_reply_markup}`;
     // let url = `https://api.telegram.org/bot${api_token}/sendMessage?chat_id=${chat_id}&text=${encoded_text}`;
     logger.log(`sendMessage url: ${url}`);
     logger.log(`sendMessageToSubscriber. chat_id: ${chat_id}, text: ${sanitized_text}`);
-    // TODO parameters as hash
     request.post({
       url: url
     }, function(error, response, body) {
       logger.log(`sendMessageToSubscriber. SEND! chat_id: ${chat_id}, text: ${sanitized_text}`);
       if (error) {
-        logger.log(`sendMessageToSubscriber. error: ${error}`); // Print the error if one occurred
-        logger.log(`sendMessageToSubscriber. statusCode: ${response && response.statusCode}`); // Print the response status code if a response was received
+        util.log_request_error(error, response);
       }
     });
 
     await util.sleep(delay);
   };
 
+  // TODO: rollback save to history if send failed
   this.sendMessageToSubscriber = async function (settings, chat_id, text, reply_markup_object, date) {
     let sanitized_chat_id = parseInt(chat_id, 10);
     // TODO: need more sofisticated check
     if (isNaN(sanitized_chat_id)) {
       logger.log('chat_id is empty');
     }
-    let sanitized_text = util.sanitizeText(text);
+    let sanitized_text = util.sanitizeText(`${message_prepender}${text}`.trim());
     let delay = this.getDelayBetweenRequests();
     // let url = `https://api.telegram.org/bot${api_token}/sendMessage?chat_id=${chat_id}&text=${encoded_text}`;
     logger.log(`sendMessageToSubscriber. chat_id: ${sanitized_chat_id}, text: ${sanitized_text}`);
 
     let bot = util.isToday(date) ? bot_today : bot_tomorrow;
     bot.sendMessage(sanitized_chat_id, sanitized_text, reply_markup_object).then(function () {
-      logger.log(`sendMessageToSubscriber. SEND! chat_id: ${sanitized_chat_id}, text: ${sanitized_text.substr(0, 20)}...`);
+      // TODO: move to settings
+      logger.log(
+        `sendMessageToSubscriber. SEND! chat_id: ${sanitized_chat_id}, text: ${cropSentMessage(sanitized_text)}`
+      );
     });
 
     await util.sleep(delay);
