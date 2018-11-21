@@ -35,13 +35,14 @@ function filterByTime (i, elem) {
   }
 };
 
-function filterByStatus (settings, logger, request, orders, date, positive_callback, negative_callback) {
+function filterByStatus (settings, logger, request, attempt, orders, date, positive_callback, negative_callback) {
   $(orders).each((i, order) => {
     // console.log('GET ORDER STATUS', getOrderNumber(elem));
     getOrderStatus(
       settings,
       logger,
       request,
+      attempt,
       order,
       date,
       positive_callback,
@@ -74,7 +75,7 @@ function lockProcessingOrderRows(orders_element) {
   });
 }
 
-function getOrderStatus (settings, logger, request, order, date, positive_callback, negative_callback) {
+function getOrderStatus (settings, logger, request, attempt, order, date, positive_callback, negative_callback) {
   let orderNumber = getOrderNumber(order);
   data = {
     url: settings.get('orders.details_url'),
@@ -87,7 +88,7 @@ function getOrderStatus (settings, logger, request, order, date, positive_callba
       return;
     }
     util.printDuration(
-      0,
+      attempt,
       start_time,
       DateTime.local(),
       `order (${orderNumber}) status query`
@@ -117,6 +118,7 @@ let parser = function (history_manager, request, settings, logger) {
     hour_to = settings.get('orders.filter_hours.to');
 
   this.getOrdersUpdates = function (attempt, callback, date = DateTime.local()) {
+    logger.log(`getOrdersUpdates, attempt: ${attempt}, for: ${util.formatDateForOrdersQuery(date)}`);
     data = {
       url: orders_url,
       qs: { 'date': util.formatDateForOrdersQuery(date) }
@@ -187,11 +189,12 @@ let parser = function (history_manager, request, settings, logger) {
   };
 
   this.filterByStatus =
-    (orders, date, positive_callback, negative_callback) =>
+    (attempt, orders, date, positive_callback, negative_callback) =>
       filterByStatus(
         settings,
         logger,
         request,
+        attempt,
         orders,
         date,
         positive_callback,
