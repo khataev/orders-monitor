@@ -158,16 +158,17 @@ let parser = function (history_manager, request, settings, logger) {
 
   // TODO: do we need link to status page?
   this.renderOrderData = function (order) {
-    // 1, 3, 6, 7, 5, 2
+    // 2, 3, 5, 6, 7
+    let emptyAgeRegexp = /, Возраст: /i;
     let $order = $(order);
     let orderNumber = this.getColumnText($order, 1),
+      time = this.getColumnText($order, 2),
       metro = this.getColumnText($order, 3),
-      address = this.getColumnText($order, 6),
-      client = this.getColumnText($order, 7),
       problem = this.getColumnText($order, 5),
-      time = this.getColumnText($order, 2);
+      address = this.getColumnText($order, 6),
+      client = this.getColumnText($order, 7).replace(emptyAgeRegexp,'');
 
-    return `м. ${metro}, ${address}; ${client}; ${problem}, ${time}, ${orderNumber}`
+    return `${time}, м.${metro}; ${problem}; ${address}; ${client}`;
   };
 
   this.getReplyMarkup = function (orderNumber) {
