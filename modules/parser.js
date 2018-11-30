@@ -168,7 +168,7 @@ let parser = function (history_manager, request, settings, logger) {
       address = this.getColumnText($order, 6),
       client = this.getColumnText($order, 7).replace(emptyAgeRegexp,'');
 
-    return `${time}, м.${metro}; ${problem}; ${address}; ${client}`;
+    return `${time}; ${problem}; м.${metro}; ${address}; ${client}; ${orderNumber}`;
   };
 
   this.getReplyMarkup = function (orderNumber) {
