@@ -15,8 +15,17 @@ let telegram = function(settings, logger) {
     tomorrow_token = settings.get('credentials.telegram_bot.tomorrow.api_token'),
     bot_tomorrow = new Bot(tomorrow_token, { polling: false }),
     bot_today = new Bot(today_token, { polling: false }),
-    message_prepender = settings.get('debug.message_prepender');
+    message_prepender = settings.get('debug.message_prepender'),
+    env = settings.get('env');
   sent_message_log_length = settings.get('debug.sent_message_log_length');
+
+  bot_today.setWebHook(`https://orders-monitor.herokuapp.com/${today_token}`, {
+    // certificate: `certs/${env}/server.crt`, // Path to your crt.pem
+  });
+
+  bot_tomorrow.setWebHook(`https://orders-monitor.herokuapp.com/${tomorrow_token}`, {
+    // certificate: `certs/${env}/server.crt`, // Path to your crt.pem
+  });
 
   this.mapGetUpdatesElement = function (elem) {
     console.log('mapGetUpdatesElement', elem);

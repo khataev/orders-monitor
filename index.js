@@ -1,6 +1,8 @@
 const requestGlobal = require('request');
 const { DateTime } = require('luxon');
 const express = require('express');
+const fs = require('fs');
+const bodyParser = require('body-parser');
 
 // local files
 const constants = require('./modules/constants');
@@ -37,20 +39,79 @@ function start_simple_server() {
   }
 }
 
+// TODO: khataev: change version
 function start_express_server() {
   if (settings.get('env') == 'production') {
-    let app = express();
+    logger.log('start_express_server');
+    let app = express(),
+      today_token = settings.get('credentials.telegram_bot.today.api_token'),
+      tomorrow_token = settings.get('credentials.telegram_bot.tomorrow.api_token');
+
+    //Here we are configuring express to use body-parser as middle-ware.
+    app.use(bodyParser.urlencoded({ extended: false }));
+    app.use(bodyParser.json());
 
     app.get('/', function (req, res) {
       res.json({ version: packageInfo.version });
     });
 
-    var server = app.listen(process.env.PORT, function () {
+    app.post(`/${today_token}`, function (req, res) {
+      logger.log(req.body);
+      res.json({ result: 'today handler!' });
+    });
+
+    app.post(`/${tomorrow_token}`, function (req, res) {
+      logger.log(req.body);
+      res.json({ result: 'tomorrow handler!' });
+    });
+
+    let server = app.listen(process.env.PORT, function () {
       let host = server.address().address;
       let port = server.address().port;
 
-      logger.log(`Web server started at http:${host}:${port}`);
+      console.log(`Server started at http://${host}:${port}`);
     });
+  }
+}
+
+function start_express_https_server() {
+  if (settings.get('env') == 'production') {
+    const https = require('https');
+    logger.log('start_express_https_server');
+    let app = express(),
+      today_token = settings.get('credentials.telegram_bot.today.api_token'),
+      tomorrow_token = settings.get('credentials.telegram_bot.tomorrow.api_token');
+
+    app.get('/', function (req, res) {
+      res.json({ version: packageInfo.version });
+    });
+
+    app.get(`/${today_token}`, function (req, res) {
+      res.json({ result: 'today handler!' });
+    });
+
+    app.get(`/${tomorrow_token}`, function (req, res) {
+      res.json({ result: 'tomorrow handler!' });
+    });
+
+    let env = settings.get('env');
+
+    let options = {
+      key: fs.readFileSync(`certs/${env}/server.key`),
+      cert: fs.readFileSync(`certs/${env}/server.crt`),
+      requestCert: false,
+      rejectUnauthorized: false
+    };
+
+    let server =
+      https
+        .createServer(options, app)
+        .listen(process.env.PORT, function () {
+          let host = server.address().address;
+          let port = server.address().port;
+
+          logger.log(`Server started at https://${host}:${port}`);
+        });
   }
 }
 
