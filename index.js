@@ -16,6 +16,8 @@ let request = requestGlobal.defaults({jar: true});
 let telegramApi = new telegram(settings, logger);
 let historyManager = new history(settings, logger);
 let parserApi = new parser(historyManager, request, settings, logger);
+let today_attempt = 0,
+  tomorrow_attempt = 0;
 
 function start_simple_server() {
   if (settings.get('env') == 'production') {
@@ -111,6 +113,7 @@ function negativeStatusCallback(order_row) {
 function getOrderUpdatesCallback(attempt, settings, orders, date) {
   logger.log(`filtered orders attempt ${attempt} for ${date.toFormat(constants.DATE_FORMAT)} (${orders.length})`);
   parserApi.filterByStatus(
+    attempt,
     orders,
     date,
     positiveStatusCallback,
@@ -118,7 +121,28 @@ function getOrderUpdatesCallback(attempt, settings, orders, date) {
   );
 }
 
+function getToday() {
+  let now = DateTime.local();
+  today_attempt++
+  parserApi.getOrdersUpdates(today_attempt, getOrderUpdatesCallback, now);
+}
+
+function getTomorrow() {
+  let tomorrow = DateTime.local().plus({ days: 1 });
+  tomorrow_attempt++
+  parserApi.getOrdersUpdates(tomorrow_attempt, getOrderUpdatesCallback, tomorrow);
+}
+
 async function startUpdatesPolling(settings) {
+  let update_interval = settings.get('orders.update_interval') * 1000;
+  let attempt = 0;
+
+  setInterval(getToday, update_interval);
+  await util.sleep(update_interval/2);
+  setInterval(getTomorrow, update_interval);
+}
+
+async function startUpdatesPollingOld(settings) {
   let update_interval = settings.get('orders.update_interval') * 1000;
   let attempt = 0;
   while(true) {
@@ -126,11 +150,13 @@ async function startUpdatesPolling(settings) {
     let now = DateTime.local();
     let tomorrow = DateTime.local().plus({ days: 1 });
     let dt_string = now.toISO();
+    logger.log(`today: ${now}, tomorrow: ${tomorrow}`);
     logger.log(`GETTING UPDATES, attempt ${attempt} at: ${dt_string}`);
     // historyManager.printGlobalHistory();
     parserApi.getOrdersUpdates(attempt, getOrderUpdatesCallback, now);
-    parserApi.getOrdersUpdates(attempt, getOrderUpdatesCallback, tomorrow);
+    await util.sleep(update_interval);
 
+    parserApi.getOrdersUpdates(attempt, getOrderUpdatesCallback, tomorrow);
     await util.sleep(update_interval);
   }
 }
