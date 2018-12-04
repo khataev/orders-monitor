@@ -56,11 +56,15 @@ function start_express_server() {
     });
 
     app.post(`/${today_token}`, function (req, res) {
+      logger.log(`orderNumber: ${getOrderNumberFromCallback(req.body)}`);
+      logger.log(`chat_id: ${getChatIdFromCallback(req.body)}`);
       logger.log(req.body);
       res.json({ result: 'today handler!' });
     });
 
     app.post(`/${tomorrow_token}`, function (req, res) {
+      logger.log(`orderNumber: ${getOrderNumberFromCallback(req.body)}`);
+      logger.log(`chat_id: ${getChatIdFromCallback(req.body)}`);
       logger.log(req.body);
       res.json({ result: 'tomorrow handler!' });
     });
@@ -72,6 +76,22 @@ function start_express_server() {
       console.log(`Server started at http://${host}:${port}`);
     });
   }
+}
+
+function getOrderNumberFromCallback(body) {
+  let result,
+    data = body.callback_query.data;
+  if (data) {
+    let tokens = data.split('_');
+    if (tokens.length == 2 && tokens[0] == 'seizeOrder')
+      result = tokens[1];
+  }
+
+  return result;
+}
+
+function getChatIdFromCallback(body) {
+  return body.callback_query.from.id;
 }
 
 function start_express_https_server() {
