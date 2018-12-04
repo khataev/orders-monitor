@@ -32,6 +32,16 @@ let telegram = function(settings, logger) {
     return elem['message']['chat']['id'];
   };
 
+  this.answerCallbackQueryToday = function (query_id, chat_id, order_number) {
+    let text = `chat_id: ${chat_id}, order_number: ${order_number}`;
+    bot_today.answerCallbackQuery(query_id, { text: text, show_alert: true } );
+  };
+
+  this.answerCallbackQueryTomorrow = function (query_id, chat_id, order_number) {
+    let text = `chat_id: ${chat_id}, order_number: ${order_number}`;
+    bot_tomorrow.answerCallbackQuery(query_id, { text: text, show_alert: true } );
+  };
+
   // HINT: do not use to get subscribers, get them from settings instead
   this.getBotSubscribers = function (date = DateTime.local()) {
     let api_token = this.getApiToken(settings, date);

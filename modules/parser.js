@@ -109,7 +109,7 @@ function getOrderStatus (settings, logger, request, attempt, order, date, positi
       negative_callback(order);
     }
   });
-};
+}
 
 let parser = function (history_manager, request, settings, logger) {
   historyManager = history_manager,
@@ -202,6 +202,26 @@ let parser = function (history_manager, request, settings, logger) {
         positive_callback,
         negative_callback
       );
+
+  this.getOrderNumberFromCallback = function (body) {
+    let result,
+      data = body.callback_query.data;
+    if (data) {
+      let tokens = data.split('_');
+      if (tokens.length == 2 && tokens[0] == 'seizeOrder')
+        result = tokens[1];
+    }
+
+    return result;
+  };
+
+  this.getChatIdFromCallback = function (body) {
+    return body.callback_query.from.id;
+  };
+
+  this.getCallbackQueryIdFormCallback = function (body) {
+    return body.callback_query.id;
+  };
 };
 
 module.exports = parser;
