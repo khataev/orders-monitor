@@ -33,8 +33,8 @@ function handleSeizeButton(req, res, bot = 'today') {
   logger.log(req.body);
   res.json({ result: `${bot} handler!` });
 
-    // .then(jar => seizeOrder(order_number, jar))
   logInAs(settings, chat_id)
+    .then(jar => seizeOrder(order_number, jar))
     .then(body => {
       telegramApi
         .answerCallbackQuery(query_id, `Заказ ${order_number} взят`, bot);
@@ -63,7 +63,6 @@ function start_simple_server() {
   }
 }
 
-// TODO: khataev: change version
 function start_express_server() {
   if (settings.get('env') === 'production') {
     logger.log('start_express_server');
