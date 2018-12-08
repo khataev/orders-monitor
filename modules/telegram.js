@@ -22,19 +22,24 @@ let telegram = function(settings, logger) {
   let today_token = settings.get('credentials.telegram_bot.today.api_token'),
     tomorrow_token = settings.get('credentials.telegram_bot.tomorrow.api_token'),
     message_prepender = settings.get('debug.message_prepender'),
-    env = settings.get('env');
+    application_name = settings.get('application_name');
 
   bot_tomorrow = new Bot(tomorrow_token, { polling: false });
   bot_today = new Bot(today_token, { polling: false });
   sent_message_log_length = settings.get('debug.sent_message_log_length');
 
-  bot_today.setWebHook(`https://orders-monitor.herokuapp.com/${today_token}`, {
-    // certificate: `certs/${env}/server.crt`, // Path to your crt.pem
-  });
+  if (application_name) {
+    bot_today.setWebHook(`https://${application_name}.herokuapp.com/${today_token}`, {
+      // certificate: `certs/${env}/server.crt`, // Path to your crt.pem
+    });
 
-  bot_tomorrow.setWebHook(`https://orders-monitor.herokuapp.com/${tomorrow_token}`, {
-    // certificate: `certs/${env}/server.crt`, // Path to your crt.pem
-  });
+    bot_tomorrow.setWebHook(`https://${application_name}.herokuapp.com/${tomorrow_token}`, {
+      // certificate: `certs/${env}/server.crt`, // Path to your crt.pem
+    });
+  }
+  else {
+    logger.log('Параметр application_name не установлен');
+  }
 
   this.mapGetUpdatesElement = function (elem) {
     console.log('mapGetUpdatesElement', elem);

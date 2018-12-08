@@ -8,6 +8,12 @@ const config = convict({
     default: "development",
     env: "NODE_ENV"
   },
+  application_name: {
+    doc: "The application name (used for telegram webhooks).",
+    format: String,
+    default: "",
+    env: "APPLICATION_NAME"
+  },
   db: {
     username: {
       doc: "username",
