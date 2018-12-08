@@ -22,13 +22,15 @@ let telegram = function(settings, logger) {
   let today_token = settings.get('credentials.telegram_bot.today.api_token'),
     tomorrow_token = settings.get('credentials.telegram_bot.tomorrow.api_token'),
     message_prepender = settings.get('debug.message_prepender'),
-    application_name = settings.get('application_name');
+    application_name = settings.get('application_name'),
+    is_production_env = settings.get('env') == 'production';
+  // TODO: helper for production env
 
   bot_tomorrow = new Bot(tomorrow_token, { polling: false });
   bot_today = new Bot(today_token, { polling: false });
   sent_message_log_length = settings.get('debug.sent_message_log_length');
 
-  if (application_name) {
+  if (application_name && is_production_env) {
     bot_today.setWebHook(`https://${application_name}.herokuapp.com/${today_token}`, {
       // certificate: `certs/${env}/server.crt`, // Path to your crt.pem
     });

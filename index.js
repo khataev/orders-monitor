@@ -1,3 +1,5 @@
+require('newrelic');
+
 const requestGlobal = require('request');
 const { DateTime } = require('luxon');
 const express = require('express');
