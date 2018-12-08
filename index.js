@@ -23,6 +23,8 @@ let today_attempt = 0,
   tomorrow_attempt = 0;
 
 function handleSeizeButton(req, res, bot = 'today') {
+  logger.log(req.body);
+
   let query_id = parserApi.getCallbackQueryIdFormCallback(req.body),
     order_number = parserApi.getOrderNumberFromCallback(req.body),
     chat_id = parserApi.getChatIdFromCallback(req.body);
@@ -30,8 +32,10 @@ function handleSeizeButton(req, res, bot = 'today') {
   logger.log(`query_id: ${query_id}`);
   logger.log(`order_number: ${order_number}`);
   logger.log(`chat_id: ${chat_id}`);
-  logger.log(req.body);
   res.json({ result: `${bot} handler!` });
+
+  if (!query_id || !order_number || !chat_id)
+    return;
 
   logInAs(settings, chat_id)
     .then(jar => seizeOrder(order_number, jar))

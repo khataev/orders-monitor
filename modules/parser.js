@@ -208,7 +208,7 @@ let parser = function (history_manager, request, settings, logger) {
 
   this.getOrderNumberFromCallback = function (body) {
     let result,
-      data = body.callback_query.data;
+      data = body && body.callback_query && body.callback_query.data;
     if (data) {
       let tokens = data.split('_');
       if (tokens.length == 2 && tokens[0] == 'seizeOrder')
@@ -219,11 +219,16 @@ let parser = function (history_manager, request, settings, logger) {
   };
 
   this.getChatIdFromCallback = function (body) {
-    return body.callback_query.from.id;
+    return body &&
+      body.callback_query &&
+      body.callback_query.from &&
+      body.callback_query.from.id;
   };
 
   this.getCallbackQueryIdFormCallback = function (body) {
-    return body.callback_query.id;
+    return body &&
+      body.callback_query &&
+      body.callback_query.id;
   };
 };
 
