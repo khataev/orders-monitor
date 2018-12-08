@@ -41,7 +41,7 @@ function handleSeizeButton(req, res, bot = 'today') {
     })
     .catch(error => {
       logger.log(error);
-      telegramApi.answerCallbackQuery(query_id, 'Ошибка взятия заказа', bot);
+      telegramApi.answerCallbackQuery(query_id, `Ошибка взятия заказа: ${error}`, bot);
     });
 }
 
