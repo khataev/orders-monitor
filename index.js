@@ -33,8 +33,8 @@ function handleSeizeButton(req, res, bot = 'today') {
   logger.log(req.body);
   res.json({ result: `${bot} handler!` });
 
+    // .then(jar => seizeOrder(order_number, jar))
   logInAs(settings, 'chat_id')
-    .then(jar => seizeOrder(order_number, jar))
     .then(body => {
       telegramApi
         .answerCallbackQuery(query_id, `Заказ ${order_number} взят`, bot);
@@ -100,6 +100,11 @@ function run() {
   if (settings) {
     start_express_server();
 
+    let manager_accounts = settings.get(
+      'credentials.personal_cabinet.master_accounts'
+    );
+    logger.log(manager_accounts, 'debug');
+
     historyManager
       .initOrdersHistory()
       .then(orders => { logger.log('INIT ORDERS HISTORY COMPLETE'); })
@@ -151,7 +156,6 @@ function logInAs(settings, telegram_chat_id) {
       followAllRedirects: true,
       form: form
     };
-    // resolve({});
     const jar = requestGlobal.jar();
     const request = requestGlobal.defaults({jar: jar});
     request.post(data, function (error, response, body) {

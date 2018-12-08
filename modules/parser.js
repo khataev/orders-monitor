@@ -187,7 +187,7 @@ let parser = function (history_manager, request, settings, logger) {
       "reply_markup": {
         "inline_keyboard": [
           [{ "text": 'Забрать заказ', "url": seizeOrderUrl(orderNumber) }],
-          [{ "text": 'Забрать заказ (NEW)', "callback_data": `seizeOrder_${orderNumber}` }]
+          [{ "text": 'Забрать заказ (TEST)', "callback_data": `seizeOrder_${orderNumber}` }]
         ]
       }
     };
