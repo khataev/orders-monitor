@@ -38,6 +38,7 @@ let telegram = function(settings, logger) {
     bot_tomorrow.setWebHook(`https://${application_name}.herokuapp.com/${tomorrow_token}`, {
       // certificate: `certs/${env}/server.crt`, // Path to your crt.pem
     });
+    logger.log('telegram webhooks initialization passed');
   }
   else {
     logger.log('Параметр application_name не установлен');
