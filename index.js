@@ -34,7 +34,7 @@ function handleSeizeButton(req, res, bot = 'today') {
   res.json({ result: `${bot} handler!` });
 
     // .then(jar => seizeOrder(order_number, jar))
-  logInAs(settings, 'chat_id')
+  logInAs(settings, chat_id)
     .then(body => {
       telegramApi
         .answerCallbackQuery(query_id, `Заказ ${order_number} взят`, bot);
