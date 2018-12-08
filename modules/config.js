@@ -107,6 +107,12 @@ const config = convict({
         default: '',
         env: "CREDENTIALS_PERSONAL_CABINET_PASSWORD"
       },
+      master_accounts: {
+        doc: "Per master credentials",
+        format: Object,
+        default: {},
+        env: "CREDENTIALS_PERSONAL_CABINET_MASTER_ACCOUNTS"
+      }
     },
     telegram_bot: {
       delay_between_requests: {

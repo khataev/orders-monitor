@@ -94,12 +94,11 @@ function getOrderStatus (settings, logger, request, attempt, order, date, positi
       `order (${orderNumber}) status query`
     );
     let $$ = $.load(body);
-    selector = '#body > table:nth-child(12) > tbody > tr > td > h3';
-
-    $details_header = $$(selector);
-    header_text = $details_header.text().toLowerCase();
-    statuses = settings.get('orders.statuses');
-    result = statuses.some(status => header_text.includes(status.toLowerCase()));
+    let selector = '#body > table:nth-child(12) > tbody > tr > td > h3';
+    let $details_header = $$(selector);
+    let header_text = $details_header.text().toLowerCase();
+    let statuses = settings.get('orders.statuses');
+    let result = statuses.some(status => header_text.includes(status.toLowerCase()));
 
     if (result) {
       logger.log(`POSITIVE STATUS: ${orderNumber}, ${result}, ${header_text}`);
@@ -154,6 +153,10 @@ let parser = function (history_manager, request, settings, logger) {
 
   this.getOrderNumber = function(order_row) {
     return getOrderNumber(order_row);
+  };
+
+  this.seizeOrderUrl = function(order_number) {
+    return seizeOrderUrl(order_number);
   };
 
   // TODO: do we need link to status page?

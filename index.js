@@ -14,12 +14,36 @@ const parser = require('./modules/parser');
 const history = require('./modules/history');
 const packageInfo = require('./package.json');
 
-let request = requestGlobal.defaults({jar: true});
-let telegramApi = new telegram(settings, logger);
-let historyManager = new history(settings, logger);
-let parserApi = new parser(historyManager, request, settings, logger);
+const request = requestGlobal.defaults({jar: true});
+const telegramApi = new telegram(settings, logger);
+const historyManager = new history(settings, logger);
+const parserApi = new parser(historyManager, request, settings, logger);
+
 let today_attempt = 0,
   tomorrow_attempt = 0;
+
+function handleSeizeButton(req, res, bot = 'today') {
+  let query_id = parserApi.getCallbackQueryIdFormCallback(req.body),
+    order_number = parserApi.getOrderNumberFromCallback(req.body),
+    chat_id = parserApi.getChatIdFromCallback(req.body);
+
+  logger.log(`query_id: ${query_id}`);
+  logger.log(`order_number: ${order_number}`);
+  logger.log(`chat_id: ${chat_id}`);
+  logger.log(req.body);
+  res.json({ result: `${bot} handler!` });
+
+  logInAs(settings, 'chat_id')
+    .then(jar => seizeOrder(order_number, jar))
+    .then(body => {
+      telegramApi
+        .answerCallbackQuery(query_id, `Заказ ${order_number} взят`, bot);
+    })
+    .catch(error => {
+      logger.log(error);
+      telegramApi.answerCallbackQuery(query_id, 'Ошибка взятия заказа', bot);
+    });
+}
 
 function start_simple_server() {
   if (settings.get('env') == 'production') {
@@ -41,7 +65,7 @@ function start_simple_server() {
 
 // TODO: khataev: change version
 function start_express_server() {
-  if (settings.get('env') == 'production') {
+  if (settings.get('env') === 'production') {
     logger.log('start_express_server');
     let app = express(),
       today_token = settings.get('credentials.telegram_bot.today.api_token'),
@@ -56,28 +80,11 @@ function start_express_server() {
     });
 
     app.post(`/${today_token}`, function (req, res) {
-      let query_id = parserApi.getCallbackQueryIdFormCallback(req.body),
-        order_number = parserApi.getOrderNumberFromCallback(req.body),
-        chat_id = parserApi.getChatIdFromCallback(req.body);
-
-      logger.log(`query_id: ${query_id}`);
-      logger.log(`orderNumber: ${order_number}`);
-      logger.log(`chat_id: ${chat_id}`);
-      logger.log(req.body);
-      res.json({ result: 'today handler!' });
-      telegramApi.answerCallbackQueryToday(query_id, chat_id, order_number);
+      handleSeizeButton(req, res);
     });
 
     app.post(`/${tomorrow_token}`, function (req, res) {
-      let query_id = parserApi.getCallbackQueryIdFormCallback(req.body),
-        order_number = parserApi.getOrderNumberFromCallback(req.body),
-        chat_id = parserApi.getChatIdFromCallback(req.body);
-
-      logger.log(`query_id: ${query_id}`);
-      logger.log(`orderNumber: ${order_number}`);
-      logger.log(`chat_id: ${chat_id}`);
-      logger.log(req.body);
-      res.json({ result: 'tomorrow handler!' });
+      handleSeizeButton(req, res, 'tomorrow');
     });
 
     let server = app.listen(process.env.PORT, function () {
@@ -86,47 +93,6 @@ function start_express_server() {
 
       console.log(`Server started at http://${host}:${port}`);
     });
-  }
-}
-
-function start_express_https_server() {
-  if (settings.get('env') == 'production') {
-    const https = require('https');
-    logger.log('start_express_https_server');
-    let app = express(),
-      today_token = settings.get('credentials.telegram_bot.today.api_token'),
-      tomorrow_token = settings.get('credentials.telegram_bot.tomorrow.api_token');
-
-    app.get('/', function (req, res) {
-      res.json({ version: packageInfo.version });
-    });
-
-    app.get(`/${today_token}`, function (req, res) {
-      res.json({ result: 'today handler!' });
-    });
-
-    app.get(`/${tomorrow_token}`, function (req, res) {
-      res.json({ result: 'tomorrow handler!' });
-    });
-
-    let env = settings.get('env');
-
-    let options = {
-      key: fs.readFileSync(`certs/${env}/server.key`),
-      cert: fs.readFileSync(`certs/${env}/server.crt`),
-      requestCert: false,
-      rejectUnauthorized: false
-    };
-
-    let server =
-      https
-        .createServer(options, app)
-        .listen(process.env.PORT, function () {
-          let host = server.address().address;
-          let port = server.address().port;
-
-          logger.log(`Server started at https://${host}:${port}`);
-        });
   }
 }
 
@@ -167,6 +133,52 @@ function logIn(settings, callback) {
   });
 }
 
+function logInAs(settings, telegram_chat_id) {
+  return new Promise((resolve, reject) => {
+    let accounts = settings.get('credentials.personal_cabinet.master_accounts');
+    let manager = accounts[telegram_chat_id];
+    let login = manager && manager['login'];
+    let password = manager && manager['password'];
+    if (!(login && password))
+      reject(`Логин и пароль для доступа к ЛК от имени chat_id=${telegram_chat_id} не указаны`);
+
+    let form = {
+      login: accounts[telegram_chat_id]['login'],
+      pass: accounts[telegram_chat_id]['password']
+    };
+    let data = {
+      url: settings.get('credentials.personal_cabinet.login_url'),
+      followAllRedirects: true,
+      form: form
+    };
+    // resolve({});
+    const jar = requestGlobal.jar();
+    const request = requestGlobal.defaults({jar: jar});
+    request.post(data, function (error, response, body) {
+      if (error) {
+        util.log_request_error(error, response);
+        reject(error);
+      }
+      resolve(jar);
+    });
+  });
+}
+
+function seizeOrder(order_number, jar) {
+  return new Promise((resolve, reject) => {
+    const seize_url = parserApi.seizeOrderUrl(order_number);
+    const request = requestGlobal.defaults({jar: jar});
+    // const request = requestGlobal.defaults({});
+    request.get(seize_url, function (error, response, body) {
+      if (error) {
+        util.log_request_error(error, response);
+        reject(error);
+      }
+      resolve(body);
+    });
+  });
+}
+
 // used when order is in accounting status (and should be sent to telegram)
 function positiveStatusCallback(order_row, date) {
   sendOrderToTelegram(order_row, date);
@@ -199,13 +211,13 @@ function getOrderUpdatesCallback(attempt, settings, orders, date) {
 
 function getToday() {
   let now = DateTime.local();
-  today_attempt++
+  today_attempt++;
   parserApi.getOrdersUpdates(today_attempt, getOrderUpdatesCallback, now);
 }
 
 function getTomorrow() {
   let tomorrow = DateTime.local().plus({ days: 1 });
-  tomorrow_attempt++
+  tomorrow_attempt++;
   parserApi.getOrdersUpdates(tomorrow_attempt, getOrderUpdatesCallback, tomorrow);
 }
 
@@ -247,8 +259,13 @@ async function sendOrderToTelegram (order_row, date) {
 
 function test_run() {
   if (settings) {
+    // logInAs(settings, '1917042')
+    // logInAs(settings, '253850760')
+    //   .then(jar => seizeOrder('http://lk.us.to/eng.php', jar))
+    //   .then(body => logger.log(body))
+    //   .catch(error => logger.log(error));
 
-    logIn(settings, (settings) => {parserApi.getOrderStatus(47703698);});
+    // logIn(settings, (settings) => {parserApi.getOrderStatus(47703698);});
 
     // const Sequelize = require('sequelize');
     // const database = require('./config/database');

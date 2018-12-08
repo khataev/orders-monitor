@@ -44,7 +44,7 @@ let util = function() {
     logger.log(`request ${custom_text} attempt ${attempt} duration: ${request_duration.toFormat('s.SS')}`);
   };
 
-  this.log_request_error = function (response, error) {
+  this.log_request_error = function (error, response) {
     // Print the error if one occurred
     logger.log(`error: ${error}`);
     // Print the response status code if a response was received
