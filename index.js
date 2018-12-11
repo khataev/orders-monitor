@@ -41,9 +41,21 @@ function handleSeizeButton(req, res, bot = 'today') {
 
   logInAs(settings, chat_id)
     .then(jar => seizeOrder(order_number, jar))
-    .then(body => {
-      telegramApi
-        .answerCallbackQuery(query_id, `Заказ ${order_number} взят`, bot);
+    .then(jar => parserApi.checkSeizeResult(requestGlobal, order_number, jar))
+    .then(orderSeized => {
+      if (orderSeized) {
+        logger.log(`Заказ ${order_number} взят`);
+        telegramApi.answerCallbackQuery(query_id, `Заказ ${order_number} взят`, bot);
+      }
+      else {
+        logger.log(`Заказ ${order_number} не взят, возможно, вас опередили`);
+        telegramApi
+          .answerCallbackQuery(
+            query_id,
+            `Заказ ${order_number} не взят, возможно, вас опередили`,
+            bot
+          );
+      }
     })
     .catch(error => {
       logger.log(error);
@@ -270,6 +282,20 @@ function test_run() {
   if (settings) {
     // logInAs(settings, '1917042')
     // logInAs(settings, '253850760')
+    //   .then(jar => parserApi.checkSeizeResult(requestGlobal, '4918996', jar))
+    //   .then(orderSeized => {
+    //     if (orderSeized) {
+    //       console.log('YES');
+    //     }
+    //     else {
+    //       console.log('NO');
+    //     }
+    //   })
+    //   .catch(error => {
+    //     console.log('ERROR');
+    //     logger.log(error);
+    //   });
+
     //   .then(jar => seizeOrder('http://lk.us.to/eng.php', jar))
     //   .then(body => logger.log(body))
     //   .catch(error => logger.log(error));

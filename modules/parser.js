@@ -118,7 +118,7 @@ let parser = function (history_manager, request, settings, logger) {
 
   this.getOrdersUpdates = function (attempt, callback, date = DateTime.local()) {
     logger.log(`getOrdersUpdates, attempt: ${attempt}, for: ${util.formatDateForOrdersQuery(date)}`);
-    data = {
+    let data = {
       url: orders_url,
       qs: { 'date': util.formatDateForOrdersQuery(date) }
     };
@@ -135,15 +135,44 @@ let parser = function (history_manager, request, settings, logger) {
         `getOrdersUpdates(${util.formatDateForOrdersQuery(date)})`
       );
       let $$ = $.load(body);
-      selector = '#body > table:nth-child(2) > tbody > tr > td > table:nth-child(6) > tbody';
+      let selector = '#body > table:nth-child(2) > tbody > tr > td > table:nth-child(6) > tbody';
 
-      $orders_tbody = $$(selector);
-      $orders = $orders_tbody.children('tr');
+      let $orders_tbody = $$(selector);
+      let $orders = $orders_tbody.children('tr');
       logger.log(`current orders attempt ${attempt} for ${date.toFormat(constants.DATE_FORMAT)} (${$orders.length})`);
       $orders = $orders.filter((i, elem) => { return filterOrders(i, elem, date); });
 
       lockProcessingOrderRows($orders);
       callback(attempt, settings, $orders, date);
+    });
+  };
+
+  this.checkSeizeResult = function (request, order_number, jar) {
+    return new Promise((resolve, reject) => {
+      logger.log(`checkSeizeResult, order_number: ${order_number}`);
+      const req = request.defaults({jar: jar});
+      // HINT: use the same base url as for order details
+      let details_url = settings.get('orders.details_url');
+      let start_time = DateTime.local();
+
+      req.get(details_url, function (error, response, body) {
+        if (error) {
+          util.log_request_error(error, response);
+          reject(error);
+        }
+        util.printDuration(
+          0,
+          start_time,
+          DateTime.local(),
+          `checkSeizeResult(${order_number})`
+        );
+        let $$ = $.load(body);
+        let selector = '#body > table:nth-child(12) > tbody > tr > td > table.active-orders > tbody';
+        let $orders_tbody = $$(selector);
+        let $orders = $orders_tbody.children('tr');
+        $orders = $orders.filter((i, elem) => { return getColumnText(elem, 0) == order_number; });
+        resolve($orders.length > 0);
+      });
     });
   };
 
@@ -186,8 +215,8 @@ let parser = function (history_manager, request, settings, logger) {
     return {
       "reply_markup": {
         "inline_keyboard": [
-          [{ "text": 'Забрать заказ', "url": seizeOrderUrl(orderNumber) }],
-          [{ "text": 'Забрать заказ (TEST)', "callback_data": `seizeOrder_${orderNumber}` }]
+          // [{ "text": 'Забрать заказ', "url": seizeOrderUrl(orderNumber) }],
+          [{ "text": 'Забрать заказ', "callback_data": `seizeOrder_${orderNumber}` }]
         ]
       }
     };
