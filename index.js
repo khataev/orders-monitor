@@ -195,7 +195,7 @@ function seizeOrder(order_number, jar) {
         util.log_request_error(error, response);
         reject(error);
       }
-      resolve(body);
+      resolve(jar);
     });
   });
 }
