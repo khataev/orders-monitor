@@ -3,7 +3,6 @@ require('newrelic');
 const requestGlobal = require('request');
 const { DateTime } = require('luxon');
 const express = require('express');
-const fs = require('fs');
 const bodyParser = require('body-parser');
 
 // local files

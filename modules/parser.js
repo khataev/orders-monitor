@@ -156,10 +156,8 @@ let parser = function (history_manager, request, settings, logger) {
       let start_time = DateTime.local();
 
       req.get(details_url, function (error, response, body) {
-        logger.log(`---------------- ${order_number} ------------`);
-        logger.log(body);
-        logger.appendToFile(`---------------- ${order_number} ------------`, 'log/check_seize_rezult.log');
-        logger.appendToFile(body, 'log/check_seize_rezult.log');
+        logger.log(`---------------- ${order_number} ------------`, 'debug');
+        logger.log(body, 'debug');
         if (error) {
           util.log_request_error(error, response);
           reject(error);
