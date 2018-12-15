@@ -94,12 +94,11 @@ function getOrderStatus (settings, logger, request, attempt, order, date, positi
       `order (${orderNumber}) status query`
     );
     let $$ = $.load(body);
-    selector = '#body > table:nth-child(12) > tbody > tr > td > h3';
-
-    $details_header = $$(selector);
-    header_text = $details_header.text().toLowerCase();
-    statuses = settings.get('orders.statuses');
-    result = statuses.some(status => header_text.includes(status.toLowerCase()));
+    let selector = '#body > table:nth-child(12) > tbody > tr > td > h3';
+    let $details_header = $$(selector);
+    let header_text = $details_header.text().toLowerCase();
+    let statuses = settings.get('orders.statuses');
+    let result = statuses.some(status => header_text.includes(status.toLowerCase()));
 
     if (result) {
       logger.log(`POSITIVE STATUS: ${orderNumber}, ${result}, ${header_text}`);
@@ -109,7 +108,7 @@ function getOrderStatus (settings, logger, request, attempt, order, date, positi
       negative_callback(order);
     }
   });
-};
+}
 
 let parser = function (history_manager, request, settings, logger) {
   historyManager = history_manager,
@@ -119,7 +118,7 @@ let parser = function (history_manager, request, settings, logger) {
 
   this.getOrdersUpdates = function (attempt, callback, date = DateTime.local()) {
     logger.log(`getOrdersUpdates, attempt: ${attempt}, for: ${util.formatDateForOrdersQuery(date)}`);
-    data = {
+    let data = {
       url: orders_url,
       qs: { 'date': util.formatDateForOrdersQuery(date) }
     };
@@ -136,15 +135,46 @@ let parser = function (history_manager, request, settings, logger) {
         `getOrdersUpdates(${util.formatDateForOrdersQuery(date)})`
       );
       let $$ = $.load(body);
-      selector = '#body > table:nth-child(2) > tbody > tr > td > table:nth-child(6) > tbody';
+      let selector = '#body > table:nth-child(2) > tbody > tr > td > table:nth-child(6) > tbody';
 
-      $orders_tbody = $$(selector);
-      $orders = $orders_tbody.children('tr');
+      let $orders_tbody = $$(selector);
+      let $orders = $orders_tbody.children('tr');
       logger.log(`current orders attempt ${attempt} for ${date.toFormat(constants.DATE_FORMAT)} (${$orders.length})`);
       $orders = $orders.filter((i, elem) => { return filterOrders(i, elem, date); });
 
       lockProcessingOrderRows($orders);
       callback(attempt, settings, $orders, date);
+    });
+  };
+
+  this.checkSeizeResult = function (request, order_number, jar) {
+    return new Promise((resolve, reject) => {
+      logger.log(`checkSeizeResult, order_number: ${order_number}`);
+      const req = request.defaults({jar: jar});
+      // HINT: use the same base url as for order details
+      let details_url = settings.get('orders.details_url');
+      let start_time = DateTime.local();
+
+      req.get(details_url, function (error, response, body) {
+        logger.log(`---------------- ${order_number} ------------`, 'debug');
+        logger.log(body, 'debug');
+        if (error) {
+          util.log_request_error(error, response);
+          reject(error);
+        }
+        util.printDuration(
+          0,
+          start_time,
+          DateTime.local(),
+          `checkSeizeResult(${order_number})`
+        );
+        let $$ = $.load(body);
+        let selector = '#body > table:nth-child(12) > tbody > tr > td > table.active-orders > tbody';
+        let $orders_tbody = $$(selector);
+        let $orders = $orders_tbody.children('tr');
+        $orders = $orders.filter((i, elem) => { return getColumnText(elem, 0) == order_number; });
+        resolve($orders.length > 0);
+      });
     });
   };
 
@@ -154,6 +184,10 @@ let parser = function (history_manager, request, settings, logger) {
 
   this.getOrderNumber = function(order_row) {
     return getOrderNumber(order_row);
+  };
+
+  this.seizeOrderUrl = function(order_number) {
+    return seizeOrderUrl(order_number);
   };
 
   // TODO: do we need link to status page?
@@ -183,7 +217,8 @@ let parser = function (history_manager, request, settings, logger) {
     return {
       "reply_markup": {
         "inline_keyboard": [
-          [{ "text": 'Забрать заказ', "url": seizeOrderUrl(orderNumber)}]
+          // [{ "text": 'Забрать заказ', "url": seizeOrderUrl(orderNumber) }],
+          [{ "text": 'Забрать заказ', "callback_data": `seizeOrder_${orderNumber}` }]
         ]
       }
     };
@@ -201,6 +236,31 @@ let parser = function (history_manager, request, settings, logger) {
         positive_callback,
         negative_callback
       );
+
+  this.getOrderNumberFromCallback = function (body) {
+    let result,
+      data = body && body.callback_query && body.callback_query.data;
+    if (data) {
+      let tokens = data.split('_');
+      if (tokens.length == 2 && tokens[0] == 'seizeOrder')
+        result = tokens[1];
+    }
+
+    return result;
+  };
+
+  this.getChatIdFromCallback = function (body) {
+    return body &&
+      body.callback_query &&
+      body.callback_query.from &&
+      body.callback_query.from.id;
+  };
+
+  this.getCallbackQueryIdFormCallback = function (body) {
+    return body &&
+      body.callback_query &&
+      body.callback_query.id;
+  };
 };
 
 module.exports = parser;

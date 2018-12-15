@@ -1,5 +1,7 @@
 /.idea
 /log/*
+certs
 orders_history.yml
 orders-monitor
 settings.yml
+newrelic_agent.log

@@ -4,23 +4,58 @@ const util = require('./util');
 
 const Bot = require('node-telegram-bot-api');
 
-let sent_message_log_length;
+let bot_tomorrow, bot_today, sent_message_log_length;
 
 function cropSentMessage(message) {
   return `${message.substr(0, sent_message_log_length)}...`;
 }
 
+function answerCallbackQueryToday(query_id, text) {
+  bot_today.answerCallbackQuery(query_id, { text: text, show_alert: true } );
+};
+
+function answerCallbackQueryTomorrow(query_id, text) {
+  bot_tomorrow.answerCallbackQuery(query_id, { text: text, show_alert: true } );
+};
+
 let telegram = function(settings, logger) {
   let today_token = settings.get('credentials.telegram_bot.today.api_token'),
     tomorrow_token = settings.get('credentials.telegram_bot.tomorrow.api_token'),
-    bot_tomorrow = new Bot(tomorrow_token, { polling: false }),
-    bot_today = new Bot(today_token, { polling: false }),
-    message_prepender = settings.get('debug.message_prepender');
+    message_prepender = settings.get('debug.message_prepender'),
+    application_name = settings.get('application_name'),
+    is_production_env = settings.get('env') == 'production';
+  // TODO: helper for production env
+
+  bot_tomorrow = new Bot(tomorrow_token, { polling: false });
+  bot_today = new Bot(today_token, { polling: false });
   sent_message_log_length = settings.get('debug.sent_message_log_length');
+
+  if (application_name && is_production_env) {
+    bot_today.setWebHook(`https://${application_name}.herokuapp.com/${today_token}`, {
+      // certificate: `certs/${env}/server.crt`, // Path to your crt.pem
+    });
+
+    bot_tomorrow.setWebHook(`https://${application_name}.herokuapp.com/${tomorrow_token}`, {
+      // certificate: `certs/${env}/server.crt`, // Path to your crt.pem
+    });
+    logger.log('telegram webhooks initialization passed');
+  }
+  else {
+    logger.log('Параметр application_name не установлен');
+  }
 
   this.mapGetUpdatesElement = function (elem) {
     console.log('mapGetUpdatesElement', elem);
     return elem['message']['chat']['id'];
+  };
+
+  this.answerCallbackQuery = function(query_id, text, bot = 'today') {
+    if (bot === 'today') {
+      answerCallbackQueryToday(query_id, text);
+    }
+    else {
+      answerCallbackQueryTomorrow(query_id, text);
+    }
   };
 
   // HINT: do not use to get subscribers, get them from settings instead
@@ -28,7 +63,7 @@ let telegram = function(settings, logger) {
     let api_token = this.getApiToken(settings, date);
     let url = `https://api.telegram.org/bot${api_token}/getUpdates`;
 
-    let promise = new Promise(function(resolve, reject) {
+    return new Promise(function(resolve, reject) {
       let params = { url: url };
       request.post(params, function (error, response, body) {
         if (error) {
@@ -41,14 +76,12 @@ let telegram = function(settings, logger) {
           console.log(result);
           // TODO: how to avoid this context hoisting
           let parent = this;
-          let subscribers = (result == undefined ? [] : result.map(parent.mapGetUpdatesElement));
+          let subscribers = (result === undefined ? [] : result.map(parent.mapGetUpdatesElement));
           let uniqueSubscribers = new Set(subscribers); // make them unique
           resolve(uniqueSubscribers);
         }
       });
     });
-
-    return promise;
   };
 
   this.getChatIds = function (){
