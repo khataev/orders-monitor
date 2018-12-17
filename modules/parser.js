@@ -7,19 +7,19 @@ let historyManager, orders_url, hour_from, hour_to;
 
 function getColumnText(order_row, column_number) {
   return $(order_row).children('td').eq(column_number).text();
-};
+}
 
 function getOrderNumber(order_row) {
   return getColumnText(order_row, 1);
-};
+}
 
 function filterOnlyOrders (i, elem) {
   return i > 0;
-};
+}
 
 function filterLocked (i, elem) {
   return !historyManager.checkProcessingOrder(getOrderNumber(elem));
-};
+}
 
 function filterByTime (i, elem) {
   if (!(hour_from && hour_to))
@@ -33,7 +33,7 @@ function filterByTime (i, elem) {
   } catch (e) {
     return true;
   }
-};
+}
 
 function filterByStatus (settings, logger, request, attempt, orders, date, positive_callback, negative_callback) {
   $(orders).each((i, order) => {
@@ -49,30 +49,37 @@ function filterByStatus (settings, logger, request, attempt, orders, date, posit
       negative_callback
     );
   });
-};
+}
 
 function filterByHistory (i, elem, date) {
   let order_number = getOrderNumber(elem);
 
   return !historyManager.dayHistoryIncludes(date, order_number);
-};
+}
 
-function filterOrders (i, elem, date) {
-  return filterOnlyOrders(i, elem) &&
-    filterLocked(i, elem) &&
-    filterByTime(i, elem) &&
-    filterByHistory(i, elem, date);
-};
+function filterCurrentOrders(i, elem) {
+  return filterOnlyOrders(i, elem) && filterByTime(i, elem);
+}
+
+function filterNewOrders(i, elem, date) {
+  return filterLocked(i, elem) && filterByHistory(i, elem, date);
+}
 
 function seizeOrderUrl (orderNumber) {
   return `${orders_url.trim()}?id=${orderNumber}`;
-};
+}
 
 function lockProcessingOrderRows(orders_element) {
   // assume cheerio element
   orders_element.each((i, order_row) => {
     historyManager.lockProcessingOrder(getOrderNumber(order_row))
   });
+}
+
+function getOrderNumbers(orders_element) {
+  return orders_element.map((i, order_row) => {
+    return getOrderNumber(order_row);
+  }).get();
 }
 
 function getOrderStatus (settings, logger, request, attempt, order, date, positive_callback, negative_callback) {
@@ -116,34 +123,38 @@ let parser = function (history_manager, request, settings, logger) {
     hour_from = settings.get('orders.filter_hours.from'),
     hour_to = settings.get('orders.filter_hours.to');
 
-  this.getOrdersUpdates = function (attempt, callback, date = DateTime.local()) {
-    logger.log(`getOrdersUpdates, attempt: ${attempt}, for: ${util.formatDateForOrdersQuery(date)}`);
-    let data = {
-      url: orders_url,
-      qs: { 'date': util.formatDateForOrdersQuery(date) }
-    };
-    let start_time = DateTime.local();
-    request.get(data, function (error, response, body) {
-      if (error) {
-        util.log_request_error(error, response);
-        return;
-      }
-      util.printDuration(
-        attempt,
-        start_time,
-        DateTime.local(),
-        `getOrdersUpdates(${util.formatDateForOrdersQuery(date)})`
-      );
-      let $$ = $.load(body);
-      let selector = '#body > table:nth-child(2) > tbody > tr > td > table:nth-child(6) > tbody';
+  this.getOrdersUpdates = function (attempt, date = DateTime.local()) {
+    return new Promise((resolve, reject) => {
+      logger.log(`getOrdersUpdates, attempt: ${attempt}, for: ${util.formatDateForOrdersQuery(date)}`);
+      let data = {
+        url: orders_url,
+        qs: { 'date': util.formatDateForOrdersQuery(date) }
+      };
+      let start_time = DateTime.local();
+      request.get(data, function (error, response, body) {
+        if (error) {
+          util.log_request_error(error, response);
+          reject(error);
+        }
+        util.printDuration(
+          attempt,
+          start_time,
+          DateTime.local(),
+          `getOrdersUpdates(${util.formatDateForOrdersQuery(date)})`
+        );
+        let $$ = $.load(body);
+        let selector = '#body > table:nth-child(2) > tbody > tr > td > table:nth-child(6) > tbody';
 
-      let $orders_tbody = $$(selector);
-      let $orders = $orders_tbody.children('tr');
-      logger.log(`current orders attempt ${attempt} for ${date.toFormat(constants.DATE_FORMAT)} (${$orders.length})`);
-      $orders = $orders.filter((i, elem) => { return filterOrders(i, elem, date); });
+        let $orders_tbody = $$(selector);
+        let $orders = $orders_tbody.children('tr');
+        $current_orders = $orders.filter((i, elem) => { return filterCurrentOrders(i, elem, date); });
+        logger.log(
+          `current orders attempt ${attempt} for ${date.toFormat(constants.DATE_FORMAT)} (${$current_orders.length})`
+        );
+        $orders = $current_orders.filter((i, elem) => { return filterNewOrders(i, elem, date); });
 
-      lockProcessingOrderRows($orders);
-      callback(attempt, settings, $orders, date);
+        resolve({ current_orders: $current_orders, new_orders: $orders });
+      });
     });
   };
 
@@ -224,6 +235,8 @@ let parser = function (history_manager, request, settings, logger) {
     };
   };
 
+  this.getOrderNumbers = getOrderNumbers;
+
   this.filterByStatus =
     (attempt, orders, date, positive_callback, negative_callback) =>
       filterByStatus(
@@ -236,6 +249,8 @@ let parser = function (history_manager, request, settings, logger) {
         positive_callback,
         negative_callback
       );
+
+  this.lockProcessingOrderRows = lockProcessingOrderRows;
 
   this.getOrderNumberFromCallback = function (body) {
     let result,

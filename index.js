@@ -201,14 +201,18 @@ function seizeOrder(order_number, jar) {
 
 // used when order is in accounting status (and should be sent to telegram)
 function positiveStatusCallback(order_row, date) {
-  sendOrderToTelegram(order_row, date);
-  historyManager.saveOrderToHistory(
-    parserApi.getOrderNumber(order_row),
-    date
-  );
-  historyManager.releaseProcessingOrder(
-    parserApi.getOrderNumber(order_row)
-  );
+  let orderNumber = parserApi.getOrderNumber(order_row);
+  sendOrderToTelegram(order_row, date)
+    .then((message_ids) => {
+        // historyManager.saveMessageIdsForOrder(orderNumber, message_ids)
+        historyManager.saveOrderToHistory(
+          orderNumber,
+          date,
+          message_ids
+        );
+        historyManager.releaseProcessingOrder(orderNumber);
+      }
+    );
 }
 
 // for other cases, when we ignore this order
@@ -232,13 +236,49 @@ function getOrderUpdatesCallback(attempt, settings, orders, date) {
 function getToday() {
   let now = DateTime.local();
   today_attempt++;
-  parserApi.getOrdersUpdates(today_attempt, getOrderUpdatesCallback, now);
+  parserApi
+    .getOrdersUpdates(today_attempt, now)
+    .then((updates) => {
+      // process new orders
+      parserApi.lockProcessingOrderRows(updates.new_orders);
+      getOrderUpdatesCallback(today_attempt, settings, updates.new_orders, now);
+
+      return updates;
+    })
+    .then((updates) => {
+      // process seized orders
+      let order_numbers = parserApi.getOrderNumbers(updates.current_orders);
+      logger.log(`------------- TODAY CURRENT: ${order_numbers} -------------`)
+      historyManager.markSeizedOrders(order_numbers)
+        .then((seized_order_numbers) => {
+          // TODO: update messages in telegram
+          if (seized_order_numbers.length > 0)
+            logger.log(`------------- TODAY SEIZED: ${seized_order_numbers} -------------`);
+        });
+    });
 }
 
 function getTomorrow() {
   let tomorrow = DateTime.local().plus({ days: 1 });
   tomorrow_attempt++;
-  parserApi.getOrdersUpdates(tomorrow_attempt, getOrderUpdatesCallback, tomorrow);
+  parserApi
+    .getOrdersUpdates(tomorrow_attempt, tomorrow)
+    .then((updates) => {
+      parserApi.lockProcessingOrderRows(updates.new_orders);
+      getOrderUpdatesCallback(tomorrow_attempt, settings, updates.new_orders, tomorrow);
+
+      return updates;
+    })
+    .then((updates) => {
+      let order_numbers = parserApi.getOrderNumbers(updates.current_orders);
+      logger.log(`------------- TOMORROW CURRENT: ${order_numbers} -------------`);
+      historyManager.markSeizedOrders(order_numbers)
+        .then((seized_order_numbers) => {
+          // TODO: update messages in telegram
+          if (seized_order_numbers.length > 0)
+            logger.log(`------------- TOMORROW SEIZED: ${seized_order_numbers} -------------`);
+        });
+    });
 }
 
 async function startUpdatesPolling(settings) {
@@ -250,31 +290,12 @@ async function startUpdatesPolling(settings) {
   setInterval(getTomorrow, update_interval);
 }
 
-async function startUpdatesPollingOld(settings) {
-  let update_interval = settings.get('orders.update_interval') * 1000;
-  let attempt = 0;
-  while(true) {
-    attempt = attempt + 1;
-    let now = DateTime.local();
-    let tomorrow = DateTime.local().plus({ days: 1 });
-    let dt_string = now.toISO();
-    logger.log(`today: ${now}, tomorrow: ${tomorrow}`);
-    logger.log(`GETTING UPDATES, attempt ${attempt} at: ${dt_string}`);
-    // historyManager.printGlobalHistory();
-    parserApi.getOrdersUpdates(attempt, getOrderUpdatesCallback, now);
-    await util.sleep(update_interval);
-
-    parserApi.getOrdersUpdates(attempt, getOrderUpdatesCallback, tomorrow);
-    await util.sleep(update_interval);
-  }
-}
-
 async function sendOrderToTelegram (order_row, date) {
   let orderNumber = parserApi.getOrderNumber(order_row);
   const replyMarkup = parserApi.getReplyMarkupBotApi(orderNumber);
   let text = parserApi.renderOrderData(order_row);
 
-  await telegramApi.sendToTelegram(settings, text, replyMarkup, date);
+  return telegramApi.sendToTelegram(settings, text, replyMarkup, date);
 }
 
 function test_run() {

@@ -117,53 +117,44 @@ let telegram = function(settings, logger) {
   };
 
   // TODO: rollback save to history if send failed
-  this.sendMessageToSubscriber = async function (settings, chat_id, text, reply_markup_object, date) {
+  this.sendMessageToSubscriber = function (settings, chat_id, text, reply_markup_object, date) {
     let sanitized_chat_id = parseInt(chat_id, 10);
     // TODO: need more sofisticated check
     if (isNaN(sanitized_chat_id)) {
       logger.log('chat_id is empty');
     }
     let sanitized_text = util.sanitizeText(`${message_prepender}${text}`.trim());
-    let delay = this.getDelayBetweenRequests();
+    // let delay = this.getDelayBetweenRequests();
     // let url = `https://api.telegram.org/bot${api_token}/sendMessage?chat_id=${chat_id}&text=${encoded_text}`;
     logger.log(`sendMessageToSubscriber. chat_id: ${sanitized_chat_id}, text: ${sanitized_text}`);
 
     let bot = util.isToday(date) ? bot_today : bot_tomorrow;
-    bot.sendMessage(sanitized_chat_id, sanitized_text, reply_markup_object).then(function () {
-      // TODO: move to settings
-      logger.log(
-        `sendMessageToSubscriber. SEND! chat_id: ${sanitized_chat_id}, text: ${cropSentMessage(sanitized_text)}`
-      );
+    return bot
+      .sendMessage(sanitized_chat_id, sanitized_text, reply_markup_object)
+      .then(message => {
+        logger.log(
+          `sendMessageToSubscriber. SEND! chat_id: ${sanitized_chat_id}, text: ${cropSentMessage(sanitized_text)}`
+        );
+        return message;
+        // logger.log(message);
     });
-
-    await util.sleep(delay);
   };
 
   this.sendToTelegram = async function (settings, text, replyMarkup, date = DateTime.local()) {
     let chat_ids = this.getChatIds();
+    let message_ids = [];
     if (chat_ids && chat_ids.length > 0) {
       logger.log(`sendToTelegram. destination chat_ids: ${chat_ids}`);
       // TODO: how to avoid this context hoisting?
       let parent = this;
       await util.asyncForEach(chat_ids, async function (i, chat_id) {
-        await parent.sendMessageToSubscriber(settings, chat_id, text, replyMarkup, date);
+        await parent
+          .sendMessageToSubscriber(settings, chat_id, text, replyMarkup, date)
+          .then(message => { message_ids.push(message.message_id) });
+        await util.sleep(parent.getDelayBetweenRequests());
       });
     }
-    // TODO: use as promise example
-    // else {
-    //   this.getBotSubscribers(date)
-    //     .then(subscribers => {
-    //       if (subscribers == undefined || subscribers.length == 0) {
-    //         logger.log('no subscribers, message would not be sent');
-    //       }
-    //       else {
-    //         subscribers.forEach(function (chat_id) {
-    //           logger.log(`sendToTelegram. Subscribers: ${subscribers}`);
-    //           this.sendMessageToSubscriber(settings, chat_id, text, replyMarkup, date);
-    //         });
-    //       }
-    //     });
-    // }
+    return message_ids;
   };
 
   this.getApiToken = function (settings, date = DateTime.local()) {
