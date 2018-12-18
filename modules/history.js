@@ -48,20 +48,28 @@ function printHistory(history) {
   }
 }
 
-async function markSeizedOrders(order_numbers) {
-  let result = [];
-  for (let property in history) {
+async function markSeizedOrders(order_numbers, date) {
+  let result = [],
+    date_key = getHistoryDateKey(date),
+    maped_order_numbers = order_numbers.map(
+      orderNumber => getHistoryKeySimple(date_key, orderNumber)
+    );
+  for (let property in global_history) {
     if (history.hasOwnProperty(property)){
-      if (!order_numbers.includes(property)) {
-        let order = history[property];
+      if (!maped_order_numbers.includes(property)) {
+        let order = global_history[property];
         order.seized = true;
         await order.save();
-        result.push(property);
+        result.push(order.orderNumber);
       }
     }
   }
 
   return result;
+}
+
+function getHistoryDateKey(date) {
+  return date.toFormat(constants.ORDERS_HISTORY_DATE_FORMAT);
 }
 
 function printGlobalHistory() {
@@ -118,7 +126,7 @@ function buildOrder(date_key, order_number, message_ids) {
 // }
 
 function saveOrderToHistory(orderNumber, date, message_ids) {
-  date_key = date.toFormat(constants.ORDERS_HISTORY_DATE_FORMAT);
+  date_key = getHistoryDateKey(date);
   history_key = getHistoryKeySimple(date_key, orderNumber);
   // logger.log(`check before save history ${history_key} ${global_history[history_key] && global_history[history_key].orderNumber}`);
   if (!global_history[history_key]) {
@@ -130,7 +138,7 @@ function saveOrderToHistory(orderNumber, date, message_ids) {
 }
 
 function dayHistoryIncludes(date, order_number) {
-  date_key = date.toFormat(constants.ORDERS_HISTORY_DATE_FORMAT);
+  date_key = getHistoryDateKey(date);
   result = !!global_history[getHistoryKeySimple(date_key, order_number)];
   // console.log('HISTORY SEARCH', getHistoryKeySimple(date_key, order_number), result);
   return result;

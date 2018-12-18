@@ -249,7 +249,7 @@ function getToday() {
       // process seized orders
       let order_numbers = parserApi.getOrderNumbers(updates.current_orders);
       logger.log(`------------- TODAY CURRENT: ${order_numbers} -------------`)
-      historyManager.markSeizedOrders(order_numbers)
+      historyManager.markSeizedOrders(order_numbers, now)
         .then((seized_order_numbers) => {
           // TODO: update messages in telegram
           if (seized_order_numbers.length > 0)
@@ -272,7 +272,7 @@ function getTomorrow() {
     .then((updates) => {
       let order_numbers = parserApi.getOrderNumbers(updates.current_orders);
       logger.log(`------------- TOMORROW CURRENT: ${order_numbers} -------------`);
-      historyManager.markSeizedOrders(order_numbers)
+      historyManager.markSeizedOrders(order_numbers, tomorrow)
         .then((seized_order_numbers) => {
           // TODO: update messages in telegram
           if (seized_order_numbers.length > 0)
