@@ -234,50 +234,51 @@ function getOrderUpdatesCallback(attempt, settings, orders, date) {
 }
 
 function getToday() {
-  let now = DateTime.local();
+  let date = DateTime.local();
   today_attempt++;
   parserApi
-    .getOrdersUpdates(today_attempt, now)
+    .getOrdersUpdates(today_attempt, date)
     .then((updates) => {
       // process new orders
       parserApi.lockProcessingOrderRows(updates.new_orders);
-      getOrderUpdatesCallback(today_attempt, settings, updates.new_orders, now);
+      getOrderUpdatesCallback(today_attempt, settings, updates.new_orders, date);
 
       return updates;
     })
-    .then((updates) => {
-      // process seized orders
-      let order_numbers = parserApi.getOrderNumbers(updates.current_orders);
-      logger.log(`------------- TODAY CURRENT: ${order_numbers} -------------`)
-      historyManager.markSeizedOrders(order_numbers, now)
-        .then((seized_order_numbers) => {
-          // TODO: update messages in telegram
-          if (seized_order_numbers.length > 0)
-            logger.log(`------------- TODAY SEIZED: ${seized_order_numbers} -------------`);
-        });
-    });
+    .then(updates => processSeizedOrders(updates, date));
 }
 
 function getTomorrow() {
-  let tomorrow = DateTime.local().plus({ days: 1 });
+  let date = DateTime.local().plus({ days: 1 });
   tomorrow_attempt++;
   parserApi
-    .getOrdersUpdates(tomorrow_attempt, tomorrow)
+    .getOrdersUpdates(tomorrow_attempt, date)
     .then((updates) => {
       parserApi.lockProcessingOrderRows(updates.new_orders);
-      getOrderUpdatesCallback(tomorrow_attempt, settings, updates.new_orders, tomorrow);
+      getOrderUpdatesCallback(tomorrow_attempt, settings, updates.new_orders, date);
 
       return updates;
     })
-    .then((updates) => {
-      let order_numbers = parserApi.getOrderNumbers(updates.current_orders);
-      logger.log(`------------- TOMORROW CURRENT: ${order_numbers} -------------`);
-      historyManager.markSeizedOrders(order_numbers, tomorrow)
-        .then((seized_order_numbers) => {
-          // TODO: update messages in telegram
-          if (seized_order_numbers.length > 0)
-            logger.log(`------------- TOMORROW SEIZED: ${seized_order_numbers} -------------`);
-        });
+    .then(updates => processSeizedOrders(updates, date));
+}
+
+// process seized orders
+function processSeizedOrders(updates, date) {
+  let day = util.isToday(date) ? 'TODAY' : 'TOMORROW';
+  let order_numbers = parserApi.getOrderNumbers(updates.current_orders);
+
+  // TODO: move log line to debug mode
+  logger.log(`------------- ${day} CURRENT: ${order_numbers} -------------`)
+  historyManager.markSeizedOrders(order_numbers, date)
+    .then((seized_orders) => {
+      // TODO: update messages in telegram
+      if (seized_orders.length > 0) {
+        let seized_order_numbers = seized_orders.map(order => order.orderNumber);
+        let message_ids = seized_orders.map(order => order.message_ids);
+        // TODO: move log line to debug mode
+        logger.log(`------------- TODAY SEIZED: ${seized_order_numbers} -------------`);
+        telegramApi.editMessagesInTelegram(message_ids, parserApi.seizedOrderReplyMarkup(), date);
+      }
     });
 }
 
@@ -300,6 +301,17 @@ async function sendOrderToTelegram (order_row, date) {
 
 function test_run() {
   if (settings) {
+    let date = DateTime.local();
+    // telegramApi.sendMessageToSubscriber(
+    //   settings,
+    //   '176212258',
+    //   'Бла бла бла',
+    //   parserApi.getReplyMarkupBotApi('1234'),
+    //   date
+    // ).then(message => console.log(message.message_id));
+
+    // telegramApi.editMessagesInTelegram([10493], parserApi.seizedOrderReplyMarkup(), date);
+
     // logInAs(settings, '1917042')
     // logInAs(settings, '253850760')
     //   .then(jar => parserApi.checkSeizeResult(requestGlobal, '4918996', jar))

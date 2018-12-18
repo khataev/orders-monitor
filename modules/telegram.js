@@ -117,6 +117,7 @@ let telegram = function(settings, logger) {
   };
 
   // TODO: rollback save to history if send failed
+  // TODO: no more need of settings
   this.sendMessageToSubscriber = function (settings, chat_id, text, reply_markup_object, date) {
     let sanitized_chat_id = parseInt(chat_id, 10);
     // TODO: need more sofisticated check
@@ -140,6 +141,21 @@ let telegram = function(settings, logger) {
     });
   };
 
+  this.editSubscriberMessage = function (chat_id, message_id, reply_markup_object, date) {
+    let sanitized_chat_id = parseInt(chat_id, 10);
+    if (isNaN(sanitized_chat_id)) {
+      logger.log('chat_id is empty');
+    }
+    logger.log(`editSubscriberMessage. chat_id: ${sanitized_chat_id}`);
+
+    let bot = util.isToday(date) ? bot_today : bot_tomorrow;
+    let options = {
+      chat_id: chat_id,
+      message_id: message_id
+    };
+    return bot.editMessageReplyMarkup(reply_markup_object, options);
+  };
+
   this.sendToTelegram = async function (settings, text, replyMarkup, date = DateTime.local()) {
     let chat_ids = this.getChatIds();
     let message_ids = [];
@@ -155,6 +171,25 @@ let telegram = function(settings, logger) {
       });
     }
     return message_ids;
+  };
+
+  // TODO: rename 'Telegram' functions
+  this.editMessagesInTelegram = async function (message_ids, replyMarkup, date = DateTime.local()) {
+    let chat_ids = this.getChatIds();
+    // let message_ids = [];
+    if (chat_ids && chat_ids.length > 0) {
+      logger.log(`sendToTelegram. destination chat_ids: ${chat_ids}`);
+      let parent = this;
+      await util.asyncForEach(chat_ids, async function (i, chat_id) {
+        message_ids.forEach(async message_id => {
+          await parent
+            .editSubscriberMessage(chat_id, message_id, replyMarkup, date);
+            // .then(message => { message_ids.push(message.message_id) });
+          await util.sleep(parent.getDelayBetweenRequests());
+        });
+      });
+    }
+    // return message_ids;
   };
 
   this.getApiToken = function (settings, date = DateTime.local()) {

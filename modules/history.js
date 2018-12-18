@@ -60,7 +60,7 @@ async function markSeizedOrders(order_numbers, date) {
         let order = global_history[property];
         order.seized = true;
         await order.save();
-        result.push(order.orderNumber);
+        result.push(order);
       }
     }
   }

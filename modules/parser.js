@@ -224,12 +224,22 @@ let parser = function (history_manager, request, settings, logger) {
     };
   };
 
+  // TODO: move to telegram.js
   this.getReplyMarkupBotApi = function (orderNumber) {
     return {
       "reply_markup": {
         "inline_keyboard": [
-          // [{ "text": 'Забрать заказ', "url": seizeOrderUrl(orderNumber) }],
           [{ "text": 'Забрать заказ', "callback_data": `seizeOrder_${orderNumber}` }]
+        ]
+      }
+    };
+  };
+
+  // TODO: move to telegram.js
+  this.seizedOrderReplyMarkup = function (orderNumber) {
+    return {
+      "reply_markup": {
+        "inline_keyboard": [
         ]
       }
     };
