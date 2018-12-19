@@ -183,7 +183,10 @@ let telegram = function(settings, logger) {
       await util.asyncForEach(chat_ids, async function (i, chat_id) {
         message_ids.forEach(async message_id => {
           await parent
-            .editSubscriberMessage(chat_id, message_id, replyMarkup, date);
+            .editSubscriberMessage(chat_id, message_id, replyMarkup, date)
+            .catch(error =>
+              logger.log(`editMessagesInTelegram chat_id: ${chat_ids}, message_id: ${message_id}, ERROR: ${error.message}`)
+            );
             // .then(message => { message_ids.push(message.message_id) });
           await util.sleep(parent.getDelayBetweenRequests());
         });

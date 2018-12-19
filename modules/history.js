@@ -3,6 +3,7 @@ const Sequelize = require('sequelize');
 const Op = Sequelize.Op;
 
 const constants = require('./constants');
+const util = require('./util');
 const database = require('./../config/database');
 
 let logger;
@@ -51,20 +52,30 @@ function printHistory(history) {
 async function markSeizedOrders(order_numbers, date) {
   let result = [],
     date_key = getHistoryDateKey(date),
-    maped_order_numbers = order_numbers.map(
+    date_for_log = date.toFormat(constants.DATE_FORMAT),
+    mapped_order_numbers = order_numbers.map(
       orderNumber => getHistoryKeySimple(date_key, orderNumber)
     );
-  for (let property in global_history) {
-    if (history.hasOwnProperty(property)){
-      if (!maped_order_numbers.includes(property)) {
-        let order = global_history[property];
-        order.seized = true;
-        await order.save();
-        result.push(order);
-      }
-    }
-  }
+  let properties = Object
+    .getOwnPropertyNames(global_history)
+    .filter(property => property.startsWith(date_key));
+  logger.log(`markSeizedOrders. mapped_order_numbers for ${date_for_log}: ${mapped_order_numbers.length}`);
+  logger.log(`markSeizedOrders. properties for ${date_for_log}: ${properties.length}`);
 
+  let date_orders = properties
+    .filter(property => !mapped_order_numbers.includes(property));
+  await util.asyncForEach(
+    date_orders,
+    async (index, property) => {
+      logger.log(`mark order: ${property}`);
+      let order = global_history[property];
+      order.seized = true;
+      await order.save();
+      result.push(order);
+      logger.log(`order marked: ${property}`);
+  });
+
+  logger.log(`markSeizedOrders. return result for ${date_for_log}, count: ${result.length}`);
   return result;
 }
 

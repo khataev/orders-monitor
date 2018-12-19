@@ -245,7 +245,8 @@ function getToday() {
 
       return updates;
     })
-    .then(updates => processSeizedOrders(updates, date));
+    .then(updates => processSeizedOrders(updates, date))
+    .catch(error => logger.log(error));
 }
 
 function getTomorrow() {
@@ -259,7 +260,8 @@ function getTomorrow() {
 
       return updates;
     })
-    .then(updates => processSeizedOrders(updates, date));
+    .then(updates => processSeizedOrders(updates, date))
+    .catch(error => logger.log(error));
 }
 
 // process seized orders
@@ -277,9 +279,11 @@ function processSeizedOrders(updates, date) {
         let message_ids = seized_orders.map(order => order.message_ids);
         // TODO: move log line to debug mode
         logger.log(`------------- TODAY SEIZED: ${seized_order_numbers} -------------`);
-        telegramApi.editMessagesInTelegram(message_ids, parserApi.seizedOrderReplyMarkup(), date);
+        telegramApi
+          .editMessagesInTelegram(message_ids, parserApi.seizedOrderReplyMarkup(), date);
       }
-    });
+    })
+    .catch(error => logger.log(error));
 }
 
 async function startUpdatesPolling(settings) {
