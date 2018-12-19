@@ -180,8 +180,8 @@ let telegram = function(settings, logger) {
     if (chat_ids && chat_ids.length > 0) {
       logger.log(`sendToTelegram. destination chat_ids: ${chat_ids}`);
       let parent = this;
-      await util.asyncForEach(chat_ids, async function (i, chat_id) {
-        message_ids.forEach(async message_id => {
+      await util.asyncForEach(chat_ids, async (i, chat_id) => {
+        await util.asyncForEach(message_ids, async (i, message_id) => {
           await parent
             .editSubscriberMessage(chat_id, message_id, replyMarkup, date)
             .catch(error =>
