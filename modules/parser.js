@@ -135,10 +135,12 @@ let parser = function (history_manager, request, settings, logger) {
         if (error) {
           util.log_request_error(error, response);
           reject(error);
+          return;
         }
-        logger.log(`status: ${response.statusCode}, typeof: ${typeof(response.statusCode)}`);
-        if (response && response.statusCode !== 200)
+        if (response && response.statusCode !== 200) {
           reject(`response code unsuccessful: ${response.statusCode}`);
+          return;
+        }
 
         util.printDuration(
           attempt,
@@ -184,6 +186,7 @@ let parser = function (history_manager, request, settings, logger) {
         if (error) {
           util.log_request_error(error, response);
           reject(error);
+          return;
         }
         util.printDuration(
           0,

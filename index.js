@@ -160,8 +160,10 @@ function logInAs(settings, telegram_chat_id) {
     let manager = accounts[telegram_chat_id];
     let login = manager && manager['login'];
     let password = manager && manager['password'];
-    if (!(login && password))
+    if (!(login && password)) {
       reject(`Логин и пароль для доступа к ЛК от имени chat_id=${telegram_chat_id} не указаны`);
+      return;
+    }
 
     let form = {
       login: accounts[telegram_chat_id]['login'],
@@ -193,6 +195,7 @@ function seizeOrder(order_number, jar) {
       if (error) {
         util.log_request_error(error, response);
         reject(error);
+        return;
       }
       resolve(jar);
     });
