@@ -27,7 +27,9 @@ let telegram = function(settings, logger) {
   // TODO: helper for production env
 
   bot_tomorrow = new Bot(tomorrow_token, { polling: false });
+  bot_tomorrow.id = 'bot_tomorrow';
   bot_today = new Bot(today_token, { polling: false });
+  bot_today.id = 'bot_today';
   sent_message_log_length = settings.get('debug.sent_message_log_length');
 
   if (application_name && is_production_env) {
@@ -146,13 +148,13 @@ let telegram = function(settings, logger) {
     if (isNaN(sanitized_chat_id)) {
       logger.log('chat_id is empty');
     }
-    logger.log(`editSubscriberMessage. chat_id: ${sanitized_chat_id}`);
 
     let bot = util.isToday(date) ? bot_today : bot_tomorrow;
     let options = {
       chat_id: chat_id,
       message_id: message_id
     };
+    logger.log(`editSubscriberMessage. bot_id: ${bot.id}, chat_id: ${sanitized_chat_id}, message_id: ${message_id}`);
     return bot.editMessageReplyMarkup(reply_markup_object, options);
   };
 

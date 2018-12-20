@@ -246,7 +246,7 @@ function getToday() {
       return updates;
     })
     .then(updates => processSeizedOrders(updates, date))
-    .catch(error => logger.log(error));
+    .catch(error => logger.log(`getToday error: ${error}`));
 }
 
 function getTomorrow() {
@@ -261,7 +261,7 @@ function getTomorrow() {
       return updates;
     })
     .then(updates => processSeizedOrders(updates, date))
-    .catch(error => logger.log(error));
+    .catch(error => logger.log(`getTomorrow error: ${error}`));
 }
 
 // process seized orders
@@ -270,7 +270,7 @@ function processSeizedOrders(updates, date) {
   let order_numbers = parserApi.getOrderNumbers(updates.current_orders);
 
   // TODO: move log line to debug mode
-  logger.log(`------------- ${day} CURRENT: ${order_numbers} -------------`)
+  logger.log(`------------- ${day} CURRENT: ${order_numbers} -------------`);
   historyManager.markSeizedOrders(order_numbers, date)
     .then((seized_orders) => {
       // TODO: update messages in telegram
@@ -278,7 +278,7 @@ function processSeizedOrders(updates, date) {
         let seized_order_numbers = seized_orders.map(order => order.orderNumber);
         let message_ids = seized_orders.map(order => order.message_ids);
         // TODO: move log line to debug mode
-        logger.log(`------------- TODAY SEIZED: ${seized_order_numbers} -------------`);
+        logger.log(`------------- ${day} SEIZED: ${seized_order_numbers} -------------`);
         telegramApi
           .editMessagesInTelegram(message_ids, parserApi.seizedOrderReplyMarkup(), date);
       }
@@ -306,6 +306,7 @@ async function sendOrderToTelegram (order_row, date) {
 function test_run() {
   if (settings) {
     let date = DateTime.local();
+    // let date = DateTime.local().plus({ days: 1 });
     // telegramApi.sendMessageToSubscriber(
     //   settings,
     //   '176212258',
@@ -314,7 +315,7 @@ function test_run() {
     //   date
     // ).then(message => console.log(message.message_id));
 
-    // telegramApi.editMessagesInTelegram([10493], parserApi.seizedOrderReplyMarkup(), date);
+    // telegramApi.editMessagesInTelegram([6563], parserApi.seizedOrderReplyMarkup(), date);
 
     // logInAs(settings, '1917042')
     // logInAs(settings, '253850760')

@@ -151,6 +151,14 @@ let parser = function (history_manager, request, settings, logger) {
         logger.log(
           `current orders attempt ${attempt} for ${date.toFormat(constants.DATE_FORMAT)} (${$current_orders.length})`
         );
+        if ($current_orders.length === 0) {
+          logger.log(`response.statusCode: ${response.statusCode}`);
+          logger.log('------------- ZERO ORDERS BODY ----------');
+          logger.log(`body is empty: ${body === ''}`);
+          logger.log(`body is undefined: ${body === undefined}`);
+          logger.log(`body is null: ${body === null}`);
+          logger.log(body);
+        }
         $orders = $current_orders.filter((i, elem) => { return filterNewOrders(i, elem, date); });
 
         resolve({ current_orders: $current_orders, new_orders: $orders });
