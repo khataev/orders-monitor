@@ -67,12 +67,14 @@ async function markSeizedOrders(order_numbers, date) {
   await util.asyncForEach(
     date_orders,
     async (index, property) => {
-      logger.log(`mark order: ${property}`);
       let order = global_history[property];
-      order.seized = true;
-      await order.save();
-      result.push(order);
-      logger.log(`order marked: ${property}`);
+      if (!order.seized) {
+        logger.log(`mark order: ${property}`);
+        order.seized = true;
+        await order.save();
+        result.push(order);
+        logger.log(`order marked: ${property}`);
+      }
   });
 
   logger.log(`markSeizedOrders. return result for ${date_for_log}, count: ${result.length}`);
