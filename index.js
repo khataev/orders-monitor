@@ -148,7 +148,6 @@ function logIn(settings, callback) {
     if (error) {
       util.log_request_error(error, response);
       return;
-      // TODO: shutdown function
     }
     callback(settings);
   });
@@ -272,17 +271,15 @@ function processSeizedOrders(updates, date) {
   let day = util.isToday(date) ? 'TODAY' : 'TOMORROW';
   let order_numbers = parserApi.getOrderNumbers(updates.current_orders);
 
-  // TODO: move log line to debug mode
   logger.log(`------------- ${day} CURRENT: ${order_numbers} -------------`);
   historyManager.markSeizedOrders(order_numbers, date)
     .then((seized_orders) => {
       if (seized_orders.length > 0) {
         let seized_order_numbers = seized_orders.map(order => order.orderNumber);
         let message_ids = seized_orders.flatMap(order => order.message_ids);
-        // TODO: move log line to debug mode
         logger.log(`------------- ${day} SEIZED: ${seized_order_numbers} -------------`);
         telegramApi
-          .editMessagesInTelegram(message_ids, parserApi.seizedOrderReplyMarkup(), date);
+          .editMessagesInTelegram(message_ids, telegramApi.seizedOrderReplyMarkup(), date);
 
         // TODO: for debug
         if (seized_orders.length > 5) {
@@ -291,7 +288,7 @@ function processSeizedOrders(updates, date) {
           telegramApi.sendToTelegram(
             settings,
             text,
-            parserApi.getEmptyReplyMarkupBotApi(),
+            telegramApi.getEmptyReplyMarkupBotApi(),
             date
           );
         }
@@ -311,7 +308,7 @@ async function startUpdatesPolling(settings) {
 
 async function sendOrderToTelegram (order_row, date) {
   let orderNumber = parserApi.getOrderNumber(order_row);
-  const replyMarkup = parserApi.getReplyMarkupBotApi(orderNumber);
+  const replyMarkup = telegramApi.getReplyMarkupBotApi(orderNumber);
   let text = parserApi.renderOrderData(order_row);
 
   return telegramApi.sendToTelegram(settings, text, replyMarkup, date);
@@ -347,7 +344,7 @@ function test_run() {
               // TO DO: move log line to debug mode
               logger.log(`------------- ${day} SEIZED: ${seized_order_numbers} -------------`);
               telegramApi
-                .editMessagesInTelegram(message_ids, parserApi.seizedOrderReplyMarkup(), date);
+                .editMessagesInTelegram(message_ids, telegramApi.seizedOrderReplyMarkup(), date);
             }
           })
           .catch(error => logger.log(error));

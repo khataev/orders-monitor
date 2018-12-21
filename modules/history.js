@@ -14,14 +14,6 @@ let OrderBackup;
 let global_history = {};
 let processing_orders = {};
 
-// TODO: remove
-// function saveMessageIdsForOrder(orderNumber, message_ids) {
-//   return Order.update(
-//     { message_ids: message_ids },
-//     { where: { orderNumber: { [Op.eq]: orderNumber } } }
-//   )
-// }
-
 function lockProcessingOrder(orderNumber) {
   logger.log(`LOCK ProcessingOrder: ${orderNumber}`, 'debug');
   processing_orders[orderNumber] = true;
@@ -59,8 +51,9 @@ async function markSeizedOrders(order_numbers, date) {
   let properties = Object
     .getOwnPropertyNames(global_history)
     .filter(property => property.startsWith(date_key));
-  logger.log(`markSeizedOrders. mapped_order_numbers for ${date_for_log}: ${mapped_order_numbers.length}`);
-  logger.log(`markSeizedOrders. properties for ${date_for_log}: ${properties.length}`);
+
+  logger.log(`markSeizedOrders. mapped_order_numbers for ${date_for_log}: ${mapped_order_numbers.length}`, 'debug');
+  logger.log(`markSeizedOrders. properties for ${date_for_log}: ${properties.length}`, 'debug');
 
   let date_orders = properties
     .filter(property => !mapped_order_numbers.includes(property));
@@ -69,15 +62,14 @@ async function markSeizedOrders(order_numbers, date) {
     async (index, property) => {
       let order = global_history[property];
       if (!order.seized) {
-        logger.log(`mark order: ${property}`);
         order.seized = true;
         await order.save();
         result.push(order);
-        logger.log(`order marked: ${property}`);
+        logger.log(`order seized: ${property}`);
       }
   });
 
-  logger.log(`markSeizedOrders. return result for ${date_for_log}, count: ${result.length}`);
+  logger.log(`markSeizedOrders. return result for ${date_for_log}, count: ${result.length}`, 'debug');
   return result;
 }
 
@@ -130,13 +122,6 @@ function buildOrder(date_key, order_number, message_ids) {
     }
   );
 }
-
-// TODO: remove
-// function createOrder(date_key, order_number) {
-//   buildOrder(date_key, order_number)
-//     .save()
-//     .finally((order) => Order.sequelize.close());
-// }
 
 function saveOrderToHistory(orderNumber, date, message_ids) {
   date_key = getHistoryDateKey(date);
@@ -209,9 +194,6 @@ let history = function(settings, log) {
 
   this.dayHistoryIncludes = dayHistoryIncludes;
 
-  // TODO: remove
-  // this.createOrder = createOrder;
-
   this.printGlobalHistory = printGlobalHistory;
 
   this.lockProcessingOrder = lockProcessingOrder;
@@ -219,9 +201,6 @@ let history = function(settings, log) {
   this.releaseProcessingOrder = releaseProcessingOrder;
 
   this.checkProcessingOrder = checkProcessingOrder;
-
-  // TODO: remove
-  // this.saveMessageIdsForOrder = saveMessageIdsForOrder;
 
   this.markSeizedOrders = markSeizedOrders;
 };

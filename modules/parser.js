@@ -138,7 +138,7 @@ let parser = function (history_manager, request, settings, logger) {
           return;
         }
         if (response && response.statusCode !== 200) {
-          reject(`response code unsuccessful: ${response.statusCode}`);
+          reject(`getOrdersUpdates, attempt: ${attempt}, for: ${util.formatDateForOrdersQuery(date)}, response code unsuccessful: ${response.statusCode}`);
           return;
         }
 
@@ -154,10 +154,10 @@ let parser = function (history_manager, request, settings, logger) {
 
         if ($orders_tbody.length === 0) {
           logger.log('------------- ABSENT ORDERS TABLE ----------');
-          logger.log(`body is empty: ${body === ''}`);
-          logger.log(`body is undefined: ${body === undefined}`);
-          logger.log(`body is null: ${body === null}`);
-          logger.log(body);
+          logger.log(`body is empty: ${body === ''}`, 'debug');
+          logger.log(`body is undefined: ${body === undefined}`, 'debug');
+          logger.log(`body is null: ${body === null}`, 'debug');
+          logger.log(body, 'debug');
         }
 
         let $orders = $orders_tbody.children('tr');
@@ -216,7 +216,6 @@ let parser = function (history_manager, request, settings, logger) {
     return seizeOrderUrl(order_number);
   };
 
-  // TODO: do we need link to status page?
   this.renderOrderData = function (order) {
     // 2, 3, 5, 6, 7
     let emptyAgeRegexp = /, Возраст: /i;
@@ -236,31 +235,6 @@ let parser = function (history_manager, request, settings, logger) {
       inline_keyboard: [
         [{ text: 'Забрать заказ', url: seizeOrderUrl(orderNumber)}]
       ]
-    };
-  };
-
-  // TODO: move to telegram.js
-  this.getReplyMarkupBotApi = function (orderNumber) {
-    return {
-      "reply_markup": {
-        "inline_keyboard": [
-          [{ "text": 'Забрать заказ', "callback_data": `seizeOrder_${orderNumber}` }]
-        ]
-      }
-    };
-  };
-
-  this.getEmptyReplyMarkupBotApi = function () {
-    return {};
-  };
-
-  // TODO: move to telegram.js
-  this.seizedOrderReplyMarkup = function (orderNumber) {
-    return {
-      "reply_markup": {
-        "inline_keyboard": [
-        ]
-      }
     };
   };
 

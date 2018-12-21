@@ -1,6 +1,5 @@
 const { DateTime } = require('luxon');
 const constants = require('./constants');
-// TODO: pass as a dependency
 const logger = require('./logger');
 
 let util = function() {

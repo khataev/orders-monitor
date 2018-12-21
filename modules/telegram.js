@@ -23,7 +23,7 @@ let telegram = function(settings, logger) {
     tomorrow_token = settings.get('credentials.telegram_bot.tomorrow.api_token'),
     message_prepender = settings.get('debug.message_prepender'),
     application_name = settings.get('application_name'),
-    is_production_env = settings.get('env') == 'production';
+    is_production_env = settings.get('env') === 'production';
   // TODO: helper for production env
 
   bot_tomorrow = new Bot(tomorrow_token, { polling: false });
@@ -205,6 +205,29 @@ let telegram = function(settings, logger) {
 
   this.getDelayBetweenRequests = function (){
     return settings.get('credentials.telegram_bot.delay_between_requests');
+  };
+
+  this.getReplyMarkupBotApi = function (orderNumber) {
+    return {
+      "reply_markup": {
+        "inline_keyboard": [
+          [{ "text": 'Забрать заказ', "callback_data": `seizeOrder_${orderNumber}` }]
+        ]
+      }
+    };
+  };
+
+  this.getEmptyReplyMarkupBotApi = function () {
+    return {};
+  };
+
+  this.seizedOrderReplyMarkup = function (orderNumber) {
+    return {
+      "reply_markup": {
+        "inline_keyboard": [
+        ]
+      }
+    };
   };
 };
 
