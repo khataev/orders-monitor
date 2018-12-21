@@ -288,7 +288,12 @@ function processSeizedOrders(updates, date) {
         if (seized_orders.length > 5) {
           let text = 'ATTENTION, MASS SEIZING!';
           logger.log(text);
-          telegramApi.sendToTelegram(settings,text,'',date);
+          telegramApi.sendToTelegram(
+            settings,
+            text,
+            parserApi.getEmptyReplyMarkupBotApi(),
+            date
+          );
         }
       }
     })

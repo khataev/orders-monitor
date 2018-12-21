@@ -250,6 +250,10 @@ let parser = function (history_manager, request, settings, logger) {
     };
   };
 
+  this.getEmptyReplyMarkupBotApi = function () {
+    return {};
+  };
+
   // TODO: move to telegram.js
   this.seizedOrderReplyMarkup = function (orderNumber) {
     return {
