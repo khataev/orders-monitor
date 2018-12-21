@@ -279,7 +279,7 @@ function processSeizedOrders(updates, date) {
       // TODO: update messages in telegram
       if (seized_orders.length > 0) {
         let seized_order_numbers = seized_orders.map(order => order.orderNumber);
-        let message_ids = seized_orders.map(order => order.message_ids);
+        let message_ids = seized_orders.flatMap(order => order.message_ids);
         // TODO: move log line to debug mode
         logger.log(`------------- ${day} SEIZED: ${seized_order_numbers} -------------`);
         telegramApi
@@ -310,6 +310,7 @@ function test_run() {
   if (settings) {
     let date = DateTime.local();
     // let date = DateTime.local().plus({ days: 1 });
+    let day = util.isToday(date) ? 'TODAY' : 'TOMORROW';
     // telegramApi.sendMessageToSubscriber(
     //   settings,
     //   '176212258',
@@ -318,7 +319,29 @@ function test_run() {
     //   date
     // ).then(message => console.log(message.message_id));
 
-    // telegramApi.editMessagesInTelegram([6563], parserApi.seizedOrderReplyMarkup(), date);
+    // telegramApi.editMessagesInTelegram([10880], parserApi.seizedOrderReplyMarkup(), date);
+
+    let order_numbers = ['50031267'];
+    historyManager
+      .initOrdersHistory()
+      .then(orders => { console.log('INIT COMPLETE'); })
+      .then(() => {
+
+        historyManager.markSeizedOrders(order_numbers, date)
+          .then((seized_orders) => {
+            // TO DO: update messages in telegram
+            if (seized_orders.length > 0) {
+              let seized_order_numbers = seized_orders.map(order => order.orderNumber);
+              let message_ids = seized_orders.flatMap(order => order.message_ids);
+              // TO DO: move log line to debug mode
+              logger.log(`------------- ${day} SEIZED: ${seized_order_numbers} -------------`);
+              telegramApi
+                .editMessagesInTelegram(message_ids, parserApi.seizedOrderReplyMarkup(), date);
+            }
+          })
+          .catch(error => logger.log(error));
+
+      });
 
     // logInAs(settings, '1917042')
     // logInAs(settings, '253850760')
