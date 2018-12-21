@@ -150,21 +150,21 @@ let parser = function (history_manager, request, settings, logger) {
         );
         let $$ = $.load(body);
         let selector = '#body > table:nth-child(2) > tbody > tr > td > table:nth-child(6) > tbody';
-
         let $orders_tbody = $$(selector);
-        let $orders = $orders_tbody.children('tr');
-        $current_orders = $orders.filter((i, elem) => { return filterCurrentOrders(i, elem, date); });
-        logger.log(
-          `current orders attempt ${attempt} for ${date.toFormat(constants.DATE_FORMAT)} (${$current_orders.length})`
-        );
-        if ($current_orders.length === 0) {
-          logger.log(`response.statusCode: ${response.statusCode}`);
-          logger.log('------------- ZERO ORDERS BODY ----------');
+
+        if ($orders_tbody.length === 0) {
+          logger.log('------------- ABSENT ORDERS TABLE ----------');
           logger.log(`body is empty: ${body === ''}`);
           logger.log(`body is undefined: ${body === undefined}`);
           logger.log(`body is null: ${body === null}`);
           logger.log(body);
         }
+
+        let $orders = $orders_tbody.children('tr');
+        $current_orders = $orders.filter((i, elem) => { return filterCurrentOrders(i, elem, date); });
+        logger.log(
+          `current orders attempt ${attempt} for ${date.toFormat(constants.DATE_FORMAT)} (${$current_orders.length})`
+        );
         $orders = $current_orders.filter((i, elem) => { return filterNewOrders(i, elem, date); });
 
         resolve({ current_orders: $current_orders, new_orders: $orders });
