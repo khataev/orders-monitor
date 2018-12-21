@@ -276,7 +276,6 @@ function processSeizedOrders(updates, date) {
   logger.log(`------------- ${day} CURRENT: ${order_numbers} -------------`);
   historyManager.markSeizedOrders(order_numbers, date)
     .then((seized_orders) => {
-      // TODO: update messages in telegram
       if (seized_orders.length > 0) {
         let seized_order_numbers = seized_orders.map(order => order.orderNumber);
         let message_ids = seized_orders.flatMap(order => order.message_ids);
@@ -284,6 +283,13 @@ function processSeizedOrders(updates, date) {
         logger.log(`------------- ${day} SEIZED: ${seized_order_numbers} -------------`);
         telegramApi
           .editMessagesInTelegram(message_ids, parserApi.seizedOrderReplyMarkup(), date);
+
+        // TODO: for debug
+        if (seized_orders.length > 5) {
+          let text = 'ATTENTION, MASS SEIZING!';
+          logger.log(text);
+          telegramApi.sendToTelegram(settings,text,'',date);
+        }
       }
     })
     .catch(error => logger.log(error));
