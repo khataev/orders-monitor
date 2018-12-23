@@ -12,6 +12,7 @@ const telegram = require('./modules/telegram');
 const util = require('./modules/util');
 const parser = require('./modules/parser');
 const history = require('./modules/history');
+const testScripts = require('./modules/test');
 const packageInfo = require('./package.json');
 
 const request = requestGlobal.defaults({jar: true});
@@ -280,7 +281,7 @@ function processSeizedOrders(attempt, updates, date) {
 
         if (settings.get('features.seized_order_message_editing') === 'enabled') {
           telegramApi
-            .editMessagesInTelegram(message_ids, telegramApi.seizedOrderReplyMarkup(), date);
+            .editMessagesInTelegram(message_ids, telegramApi.getEmptyReplyMarkupBotOptions(), date);
         }
 
         if (seized_orders.length > 5) {
@@ -291,7 +292,7 @@ function processSeizedOrders(attempt, updates, date) {
             telegramApi.sendToTelegram(
               settings,
               text,
-              telegramApi.getEmptyReplyMarkupBotApi(),
+              telegramApi.getEmptyReplyMarkupBotOptions(),
               date
             );
           }
@@ -311,97 +312,12 @@ async function startUpdatesPolling(settings) {
 }
 
 async function sendOrderToTelegram (order_row, date) {
-  let orderNumber = parserApi.getOrderNumber(order_row);
-  const replyMarkup = telegramApi.getReplyMarkupBotApi(orderNumber);
-  let text = parserApi.renderOrderData(order_row);
+  const orderNumber = parserApi.getOrderNumber(order_row);
+  const replyMarkup = telegramApi.getReplyMarkupBotApiOptions(orderNumber);
+  const text = parserApi.renderOrderData(order_row);
 
   return telegramApi.sendToTelegram(settings, text, replyMarkup, date);
 }
 
-function test_run() {
-  if (settings) {
-    historyManager
-      .unmarkSeizedOrders()
-      .then(orders => telegramApi.restoreSeizedMessages(orders))
-      .catch(error => logger.log(error));
-
-    // let date = util.getNowDate();
-    // let date = util.getNowDate().plus({ days: 1 });
-    // let day = util.isToday(date) ? 'TODAY' : 'TOMORROW';
-    // telegramApi.sendMessageToSubscriber(
-    //   settings,
-    //   '176212258',
-    //   'Бла бла бла',
-    //   parserApi.getReplyMarkupBotApi('1234'),
-    //   date
-    // ).then(message => console.log(message.message_id));
-
-    // telegramApi.editMessagesInTelegram([10880], parserApi.seizedOrderReplyMarkup(), date);
-
-    // let order_numbers = ['50031267'];
-    // historyManager
-    //   .initOrdersHistory()
-    //   .then(orders => { console.log('INIT COMPLETE'); })
-    //   .then(() => {
-    //
-    //     historyManager.markSeizedOrders(order_numbers, date)
-    //       .then((seized_orders) => {
-    //         // TO DO: update messages in telegram
-    //         if (seized_orders.length > 0) {
-    //           let seized_order_numbers = seized_orders.map(order => order.orderNumber);
-    //           let message_ids = seized_orders.flatMap(order => order.message_ids);
-    //           // TO DO: move log line to debug mode
-    //           logger.log(`------------- ${day} SEIZED: ${seized_order_numbers} -------------`);
-    //           telegramApi
-    //             .editMessagesInTelegram(message_ids, telegramApi.seizedOrderReplyMarkup(), date);
-    //         }
-    //       })
-    //       .catch(error => logger.log(error));
-    //
-    //   });
-
-    // logInAs(settings, '1917042')
-    // logInAs(settings, '253850760')
-    //   .then(jar => parserApi.checkSeizeResult(requestGlobal, '4918996', jar))
-    //   .then(orderSeized => {
-    //     if (orderSeized) {
-    //       console.log('YES');
-    //     }
-    //     else {
-    //       console.log('NO');
-    //     }
-    //   })
-    //   .catch(error => {
-    //     console.log('ERROR');
-    //     logger.log(error);
-    //   });
-
-    //   .then(jar => seizeOrder('http://lk.us.to/eng.php', jar))
-    //   .then(body => logger.log(body))
-    //   .catch(error => logger.log(error));
-
-    // logIn(settings, (settings) => {parserApi.getOrderStatus(47703698);});
-
-    // const Sequelize = require('sequelize');
-    // const database = require('./config/database');
-    // sequelize = new Sequelize(database[settings.get('env')]);
-    // Order = sequelize.import("./models/order");
-    //
-    // historyManager
-    //   .initOrdersHistory()
-    //   .then(orders => { console.log('INIT COMPLETE'); })
-    //   .then(result => {
-    //
-    //
-    //     result = historyManager.dayHistoryIncludes('47653830');
-    //     console.log('result', result)
-    //     console.log('exit');
-    //   });
-
-    // console.log(util.getNowDate().toJSDate());
-    key = util.getNowDate().toFormat(constants.ORDERS_HISTORY_DATE_FORMAT);
-  }
-}
-
 run();
-// test_run();
+// testScripts.test_run();

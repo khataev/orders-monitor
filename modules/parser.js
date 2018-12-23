@@ -80,7 +80,7 @@ function getOrderNumbers(orders_element) {
   }).get();
 }
 
-function logAbsentOrdersBody(attempt, body) {
+function logAbsentOrdersBody(logger, attempt, body) {
   logger.log('ABSENT ORDERS TABLE attempt: ${attempt}');
   logger.log(`attempt: ${attempt}, body is empty: ${body === ''}`, 'debug');
   logger.log(`attempt: ${attempt}, body is undefined: ${body === undefined}`, 'debug');
@@ -159,7 +159,7 @@ let parser = function (history_manager, request, settings, logger) {
         let $orders_tbody = $$(selector);
 
         if ($orders_tbody.length === 0) {
-          logAbsentOrdersBody(attempt, body);
+          logAbsentOrdersBody(logger, attempt, body);
         }
 
         let $orders = $orders_tbody.children('tr');

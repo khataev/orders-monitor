@@ -89,37 +89,9 @@ let telegram = function(settings, logger) {
     return settings.get('credentials.telegram_bot.chat_ids');
   };
 
-  this.sendMessageToSubscriberMine = async function (settings, chat_id, text, reply_markup_object, date) {
-    let sanitized_chat_id = chat_id.trim();
-    if (!sanitized_chat_id) {
-      logger.log('chat_id is empty');
-    }
-
-    let delay = this.getDelayBetweenRequests();
-    let api_token = this.getApiToken(settings, date);
-    let sanitized_text = util.sanitizeText(text);
-    let encoded_text = encodeURI(sanitized_text);
-    let encoded_reply_markup = encodeURI(JSON.stringify(reply_markup_object));
-    // TODO parameters as hash ??
-    let url = `https://api.telegram.org/bot${api_token}/sendMessage?chat_id=${chat_id}&text=${encoded_text}&reply_markup=${encoded_reply_markup}`;
-    // let url = `https://api.telegram.org/bot${api_token}/sendMessage?chat_id=${chat_id}&text=${encoded_text}`;
-    logger.log(`sendMessage url: ${url}`);
-    logger.log(`sendMessageToSubscriber. chat_id: ${chat_id}, text: ${sanitized_text}`);
-    request.post({
-      url: url
-    }, function(error, response, body) {
-      logger.log(`sendMessageToSubscriber. SEND! chat_id: ${chat_id}, text: ${sanitized_text}`);
-      if (error) {
-        util.log_request_error(error, response);
-      }
-    });
-
-    await util.sleep(delay);
-  };
-
   // TODO: rollback save to history if send failed
   // TODO: no more need of settings
-  this.sendMessageToSubscriber = function (settings, chat_id, text, reply_markup_object, date) {
+  this.sendMessageToSubscriber = function (settings, chat_id, text, reply_markup_options, date) {
     let sanitized_chat_id = parseInt(chat_id, 10);
     // TODO: need more sofisticated check
     if (isNaN(sanitized_chat_id)) {
@@ -132,7 +104,7 @@ let telegram = function(settings, logger) {
 
     let bot = util.isToday(date) ? bot_today : bot_tomorrow;
     return bot
-      .sendMessage(sanitized_chat_id, sanitized_text, reply_markup_object)
+      .sendMessage(sanitized_chat_id, sanitized_text, reply_markup_options)
       .then(message => {
         logger.log(
           `sendMessageToSubscriber. SEND! chat_id: ${sanitized_chat_id}, text: ${cropSentMessage(sanitized_text)}`
@@ -142,7 +114,7 @@ let telegram = function(settings, logger) {
     });
   };
 
-  this.editSubscriberMessageForBot = function (chat_id, message_id, reply_markup_object, bot) {
+  this.editSubscriberMessageForBot = function (chat_id, message_id, reply_markup, bot) {
     let sanitized_chat_id = parseInt(chat_id, 10);
     if (isNaN(sanitized_chat_id)) {
       logger.log('chat_id is empty');
@@ -153,16 +125,16 @@ let telegram = function(settings, logger) {
       message_id: message_id
     };
     logger.log(`editSubscriberMessageForBot. bot_id: ${bot.id}, chat_id: ${sanitized_chat_id}, message_id: ${message_id}`);
-    return bot.editMessageReplyMarkup(reply_markup_object, options);
+    return bot.editMessageReplyMarkup(reply_markup, options);
   };
 
-  this.editSubscriberMessage = function (chat_id, message_id, reply_markup_object, date) {
+  this.editSubscriberMessage = function (chat_id, message_id, reply_markup_options, date) {
     const bot = util.isToday(date) ? bot_today : bot_tomorrow;
 
-    return this.editSubscriberMessageForBot(chat_id, message_id, reply_markup_object, bot);
+    return this.editSubscriberMessageForBot(chat_id, message_id, reply_markup_options, bot);
   };
 
-  this.sendToTelegram = async function (settings, text, replyMarkup, date = util.getNowDate()) {
+  this.sendToTelegram = async function (settings, text, reply_markup_options, date = util.getNowDate()) {
     let chat_ids = this.getChatIds();
     let message_ids = [];
     if (chat_ids && chat_ids.length > 0) {
@@ -171,7 +143,7 @@ let telegram = function(settings, logger) {
       let parent = this;
       await util.asyncForEach(chat_ids, async function (i, chat_id) {
         await parent
-          .sendMessageToSubscriber(settings, chat_id, text, replyMarkup, date)
+          .sendMessageToSubscriber(settings, chat_id, text, reply_markup_options, date)
           .then(message => { message_ids.push(message.message_id) });
         await util.sleep(parent.getDelayBetweenRequests());
       });
@@ -180,7 +152,7 @@ let telegram = function(settings, logger) {
   };
 
   // TODO: rename 'Telegram' functions
-  this.editMessagesInTelegramForBot = async function (message_ids, replyMarkup, bot) {
+  this.editMessagesInTelegramForBot = async function (message_ids, reply_markup, bot) {
     const chat_ids = this.getChatIds();
     if (chat_ids && chat_ids.length > 0) {
       logger.log(`editMessagesInTelegramForBot. destination chat_ids: ${chat_ids}`);
@@ -188,9 +160,9 @@ let telegram = function(settings, logger) {
       await util.asyncForEach(chat_ids, async (i, chat_id) => {
         await util.asyncForEach(message_ids, async (i, message_id) => {
           await parent
-            .editSubscriberMessageForBot(chat_id, message_id, replyMarkup, bot)
+            .editSubscriberMessageForBot(chat_id, message_id, reply_markup, bot)
             .catch(error =>
-              logger.log(`editMessagesInTelegramForBot chat_id: ${chat_ids}, message_id: ${message_id}, ERROR: ${error.message}`)
+              logger.log(`editMessagesInTelegramForBot. chat_id: ${chat_ids}, message_id: ${message_id}, ERROR: ${error.message}`)
             );
             // .then(message => { message_ids.push(message.message_id) });
           await util.sleep(parent.getDelayBetweenRequests());
@@ -199,23 +171,21 @@ let telegram = function(settings, logger) {
     }
   };
 
-  this.editMessagesInTelegram = async function (message_ids, replyMarkup, date = util.getNowDate()) {
+  this.editMessagesInTelegram = async function (message_ids, reply_markup, date = util.getNowDate()) {
     const bot = util.isToday(date) ? bot_today : bot_tomorrow;
 
-    this.editMessagesInTelegramForBot(message_ids, replyMarkup, bot);
+    this.editMessagesInTelegramForBot(message_ids, reply_markup, bot);
   };
 
-  this.restoreSeizedMessages = function(orders) {
+  this.restoreSeizedMessages = async function(orders) {
     const parent = this;
-    orders.forEach(order => {
-      let bot =
-        util.wasOrderSentToTodayBot(order) ? bot_today : bot_tomorrow;
-      parent
-        .editMessagesInTelegramForBot(
-          order.message_ids,
-          parent.getReplyMarkupBotApi(order.orderNumber),
-          bot
-        );
+    await util.asyncForEach(orders, async (i, order) => {
+      let bot = util.wasOrderSentToTodayBot(order) ? bot_today : bot_tomorrow;
+      await parent.editMessagesInTelegramForBot(
+        order.message_ids,
+        parent.getReplyMarkup(order.orderNumber),
+        bot
+      );
     });
   };
 
@@ -229,28 +199,31 @@ let telegram = function(settings, logger) {
     return settings.get('credentials.telegram_bot.delay_between_requests');
   };
 
-  this.getReplyMarkupBotApi = function (orderNumber) {
+  this.getReplyMarkupBotApiOptions = function (orderNumber) {
     return {
-      "reply_markup": {
-        "inline_keyboard": [
-          [{ "text": 'Забрать заказ', "callback_data": `seizeOrder_${orderNumber}` }]
-        ]
-      }
+      "reply_markup": this.getReplyMarkup(orderNumber)
     };
   };
 
-  this.getEmptyReplyMarkupBotApi = function () {
+  this.getEmptyReplyMarkupBotOptions = function () {
     return {};
   };
 
-  this.seizedOrderReplyMarkup = function (orderNumber) {
+  this.getReplyMarkup = function (orderNumber) {
     return {
-      "reply_markup": {
         "inline_keyboard": [
+          [{ "text": 'Забрать заказ', "callback_data": `seizeOrder_${orderNumber}` }]
         ]
-      }
-    };
+      };
   };
+
+  this.getTodayBot = function() {
+    return bot_today;
+  }
+
+  this.getTomorrowBot = function() {
+    return bot_tomorrow;
+  }
 };
 
 module.exports = telegram;

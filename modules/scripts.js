@@ -29,7 +29,8 @@ function run(script_name) {
   if (script_name === 'telegram:restore_seized_messages') {
     historyManager
       .unmarkSeizedOrders()
-      .then(orders => telegramApi.restoreSeizedMessages(orders));
+      .then(orders => telegramApi.restoreSeizedMessages(orders))
+      .then(() => { historyManager.closeConnections() });
   }
 }
 
