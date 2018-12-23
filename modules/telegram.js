@@ -32,14 +32,22 @@ let telegram = function(settings, logger) {
   sent_message_log_length = settings.get('debug.sent_message_log_length');
 
   if (application_name && is_production_env) {
-    bot_today.setWebHook(`https://${application_name}.herokuapp.com/${today_token}`, {
-      // certificate: `certs/${env}/server.crt`, // Path to your crt.pem
-    });
-
-    bot_tomorrow.setWebHook(`https://${application_name}.herokuapp.com/${tomorrow_token}`, {
-      // certificate: `certs/${env}/server.crt`, // Path to your crt.pem
-    });
-    logger.log('telegram webhooks initialization passed');
+    const parent = this;
+    logger.log('Setting TODAY bot webhook');
+    bot_today
+      .setWebHook(`https://${application_name}.herokuapp.com/${today_token}`)
+      .then(() => logger.log('Setting TODAY bot webhook - DONE'))
+      .then(() => {
+        logger.log('Setting TOMORROW bot webhook');
+        return util.sleep(parent.getDelayBetweenRequests());
+      })
+      .then(() => {
+        return bot_tomorrow
+          .setWebHook(`https://${application_name}.herokuapp.com/${tomorrow_token}`);
+      })
+      .then(() => logger.log('Setting TOMORROW bot webhook - DONE'))
+      .catch(error => logger.log(error.message));
+    logger.log('Telegram webhooks initialization passed');
   }
   else {
     logger.log('Параметр application_name не установлен');
