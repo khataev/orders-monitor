@@ -247,7 +247,7 @@ function getToday() {
 
       return updates;
     })
-    .then(updates => processSeizedOrders(updates, date))
+    .then(updates => processSeizedOrders(today_attempt, updates, date))
     .catch(error => logger.log(`getToday error: ${error}`));
 }
 
@@ -262,28 +262,28 @@ function getTomorrow() {
 
       return updates;
     })
-    .then(updates => processSeizedOrders(updates, date))
+    .then(updates => processSeizedOrders(tomorrow_attempt, updates, date))
     .catch(error => logger.log(`getTomorrow error: ${error}`));
 }
 
 // process seized orders
-function processSeizedOrders(updates, date) {
+function processSeizedOrders(attempt, updates, date) {
   let day = util.isToday(date) ? 'TODAY' : 'TOMORROW';
   let order_numbers = parserApi.getOrderNumbers(updates.current_orders);
 
-  logger.log(`------------- ${day} CURRENT: ${order_numbers} -------------`);
+  logger.log(`------------- ${day} CURRENT (attempt ${attempt}): ${order_numbers} -------------`);
   historyManager.markSeizedOrders(order_numbers, date)
     .then((seized_orders) => {
       if (seized_orders.length > 0) {
         let seized_order_numbers = seized_orders.map(order => order.orderNumber);
         let message_ids = seized_orders.flatMap(order => order.message_ids);
-        logger.log(`------------- ${day} SEIZED: ${seized_order_numbers} -------------`);
+        logger.log(`------------- ${day} SEIZED (attempt ${attempt}): ${seized_order_numbers} -------------`);
         telegramApi
           .editMessagesInTelegram(message_ids, telegramApi.seizedOrderReplyMarkup(), date);
 
         // TODO: for debug
         if (seized_orders.length > 5) {
-          let text = 'ATTENTION, MASS SEIZING!';
+          let text = 'ATTENTION, MASS SEIZING! (attempt ${attempt})';
           logger.log(text);
           telegramApi.sendToTelegram(
             settings,

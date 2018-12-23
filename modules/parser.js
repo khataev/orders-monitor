@@ -82,6 +82,14 @@ function getOrderNumbers(orders_element) {
   }).get();
 }
 
+function logAbsentOrdersBody(attempt, body) {
+  logger.log('------------- ABSENT ORDERS TABLE attempt: ${attempt} ----------');
+  logger.log(`attempt: ${attempt}, body is empty: ${body === ''}`, 'debug');
+  logger.log(`attempt: ${attempt}, body is undefined: ${body === undefined}`, 'debug');
+  logger.log(`attempt: ${attempt}, body is null: ${body === null}`, 'debug');
+  logger.log(body, 'debug');
+}
+
 function getOrderStatus (settings, logger, request, attempt, order, date, positive_callback, negative_callback) {
   let orderNumber = getOrderNumber(order);
   data = {
@@ -153,11 +161,7 @@ let parser = function (history_manager, request, settings, logger) {
         let $orders_tbody = $$(selector);
 
         if ($orders_tbody.length === 0) {
-          logger.log('------------- ABSENT ORDERS TABLE ----------');
-          logger.log(`body is empty: ${body === ''}`, 'debug');
-          logger.log(`body is undefined: ${body === undefined}`, 'debug');
-          logger.log(`body is null: ${body === null}`, 'debug');
-          logger.log(body, 'debug');
+          logAbsentOrdersBody(attempt, body);
         }
 
         let $orders = $orders_tbody.children('tr');
