@@ -6,7 +6,7 @@ const LOG_LEVELS = {
   debug: 0,
   info: 1
 };
-let current_log_level = settings.get('debug.log_level');
+const current_log_level = settings.get('debug.log_level');
 
 function isEqualOrHigherLevel(log_level) {
   let current = LOG_LEVELS[current_log_level];
@@ -50,6 +50,9 @@ let logger = function () {
     console.log(DateTime.local().toISO(), text);
     this.appendToFile(text, LOG_FILE);
   };
+
+  this.isEqualOrHigherLevel = isEqualOrHigherLevel;
+  this.isLowerLevel = isLowerLevel;
 };
 
 module.exports = new logger();

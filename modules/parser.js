@@ -81,7 +81,7 @@ function getOrderNumbers(orders_element) {
 }
 
 function logAbsentOrdersBody(attempt, body) {
-  logger.log('------------- ABSENT ORDERS TABLE attempt: ${attempt} ----------');
+  logger.log('ABSENT ORDERS TABLE attempt: ${attempt}');
   logger.log(`attempt: ${attempt}, body is empty: ${body === ''}`, 'debug');
   logger.log(`attempt: ${attempt}, body is undefined: ${body === undefined}`, 'debug');
   logger.log(`attempt: ${attempt}, body is null: ${body === null}`, 'debug');

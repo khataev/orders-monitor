@@ -270,26 +270,31 @@ function processSeizedOrders(attempt, updates, date) {
   let day = util.isToday(date) ? 'TODAY' : 'TOMORROW';
   let order_numbers = parserApi.getOrderNumbers(updates.current_orders);
 
-  logger.log(`------------- ${day} CURRENT (attempt ${attempt}): ${order_numbers} -------------`);
+  logger.log(`${day} CURRENT (attempt ${attempt}): ${order_numbers}`);
   historyManager.markSeizedOrders(order_numbers, date)
     .then((seized_orders) => {
       if (seized_orders.length > 0) {
         let seized_order_numbers = seized_orders.map(order => order.orderNumber);
         let message_ids = seized_orders.flatMap(order => order.message_ids);
-        logger.log(`------------- ${day} SEIZED (attempt ${attempt}): ${seized_order_numbers} -------------`);
-        telegramApi
-          .editMessagesInTelegram(message_ids, telegramApi.seizedOrderReplyMarkup(), date);
+        logger.log(`${day} SEIZED (attempt ${attempt}): ${seized_order_numbers}`);
 
-        // TODO: for debug
+        if (settings.get('features.seized_order_message_editing') === 'enabled') {
+          telegramApi
+            .editMessagesInTelegram(message_ids, telegramApi.seizedOrderReplyMarkup(), date);
+        }
+
         if (seized_orders.length > 5) {
           let text = 'ATTENTION, MASS SEIZING! (attempt ${attempt})';
           logger.log(text);
-          telegramApi.sendToTelegram(
-            settings,
-            text,
-            telegramApi.getEmptyReplyMarkupBotApi(),
-            date
-          );
+
+          if (logger.isEqualOrHigherLevel('debug')) {
+            telegramApi.sendToTelegram(
+              settings,
+              text,
+              telegramApi.getEmptyReplyMarkupBotApi(),
+              date
+            );
+          }
         }
       }
     })

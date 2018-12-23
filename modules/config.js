@@ -175,6 +175,14 @@ const config = convict({
       default: 'info',
       env: "DEBUG_LOG_LEVEL"
     }
+  },
+  features: {
+    seized_order_message_editing: {
+      doc: "Turn on/off editing message in telegram for seized order",
+      format: ["enabled", "disabled"],
+      default: "enabled",
+      env: "FEATURES_SEIZED_ORDER_MESSAGE_EDITING"
+    }
   }
 });
 
