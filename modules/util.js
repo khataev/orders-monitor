@@ -1,8 +1,9 @@
-const { DateTime } = require('luxon');
+const { DateTime, Settings } = require('luxon');
 const constants = require('./constants');
 const logger = require('./logger');
 
 let util = function() {
+  Settings.defaultZoneName = "Europe/Moscow";
 
   this.sleep = async function (ms) {
     return new Promise(resolve => {
@@ -48,8 +49,15 @@ let util = function() {
     logger.log(`error: ${error}`);
     // Print the response status code if a response was received
     logger.log(`statusCode: ${response && response.statusCode}`);
-  }
+  };
 
+  this.getNowDate = function() {
+    return DateTime.local();
+  };
+
+  this.getTomorrowDate = function() {
+    return DateTime.local().plus({ days: 1 });
+  };
 };
 
 module.exports = new util();

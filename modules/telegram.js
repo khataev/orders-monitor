@@ -1,4 +1,3 @@
-const { DateTime } = require('luxon');
 const request = require('request');
 const util = require('./util');
 
@@ -61,7 +60,7 @@ let telegram = function(settings, logger) {
   };
 
   // HINT: do not use to get subscribers, get them from settings instead
-  this.getBotSubscribers = function (date = DateTime.local()) {
+  this.getBotSubscribers = function (date = util.getNowDate()) {
     let api_token = this.getApiToken(settings, date);
     let url = `https://api.telegram.org/bot${api_token}/getUpdates`;
 
@@ -158,7 +157,7 @@ let telegram = function(settings, logger) {
     return bot.editMessageReplyMarkup(reply_markup_object, options);
   };
 
-  this.sendToTelegram = async function (settings, text, replyMarkup, date = DateTime.local()) {
+  this.sendToTelegram = async function (settings, text, replyMarkup, date = util.getNowDate()) {
     let chat_ids = this.getChatIds();
     let message_ids = [];
     if (chat_ids && chat_ids.length > 0) {
@@ -176,7 +175,7 @@ let telegram = function(settings, logger) {
   };
 
   // TODO: rename 'Telegram' functions
-  this.editMessagesInTelegram = async function (message_ids, replyMarkup, date = DateTime.local()) {
+  this.editMessagesInTelegram = async function (message_ids, replyMarkup, date = util.getNowDate()) {
     let chat_ids = this.getChatIds();
     // let message_ids = [];
     if (chat_ids && chat_ids.length > 0) {
@@ -197,7 +196,7 @@ let telegram = function(settings, logger) {
     // return message_ids;
   };
 
-  this.getApiToken = function (settings, date = DateTime.local()) {
+  this.getApiToken = function (settings, date = util.getNowDate()) {
     return util.isToday(date) ?
       settings.get('credentials.telegram_bot.today.api_token') :
       settings.get('credentials.telegram_bot.tomorrow.api_token');

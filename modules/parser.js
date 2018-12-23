@@ -1,5 +1,4 @@
 const $ = require('cheerio');
-const { DateTime } = require('luxon');
 const util = require('./util');
 const constants = require('./constants');
 
@@ -27,7 +26,6 @@ function filterByTime (i, elem) {
 
   try {
     let dt_string = $(elem).children('td').eq(2).text();
-    // dt = DateTime.fromFormat(dt_string, 'dd-LL HH:mm');
     let hour = Number.parseInt(dt_string.split(' ')[1].split(':')[0]);
     return hour >= hour_from && hour <= hour_to;
   } catch (e) {
@@ -96,7 +94,7 @@ function getOrderStatus (settings, logger, request, attempt, order, date, positi
     url: settings.get('orders.details_url'),
     qs: { 'id': orderNumber }
   };
-  let start_time = DateTime.local();
+  let start_time = util.getNowDate();
   request.get(data, function (error, response, body) {
     if (error) {
       util.log_request_error(error, response);
@@ -105,7 +103,7 @@ function getOrderStatus (settings, logger, request, attempt, order, date, positi
     util.printDuration(
       attempt,
       start_time,
-      DateTime.local(),
+      util.getNowDate(),
       `order (${orderNumber}) status query`
     );
     let $$ = $.load(body);
@@ -131,14 +129,14 @@ let parser = function (history_manager, request, settings, logger) {
     hour_from = settings.get('orders.filter_hours.from'),
     hour_to = settings.get('orders.filter_hours.to');
 
-  this.getOrdersUpdates = function (attempt, date = DateTime.local()) {
+  this.getOrdersUpdates = function (attempt, date = util.getNowDate()) {
     return new Promise((resolve, reject) => {
       logger.log(`getOrdersUpdates, attempt: ${attempt}, for: ${util.formatDateForOrdersQuery(date)}`);
       let data = {
         url: orders_url,
         qs: { 'date': util.formatDateForOrdersQuery(date) }
       };
-      let start_time = DateTime.local();
+      let start_time = util.getNowDate();
       request.get(data, function (error, response, body) {
         if (error) {
           util.log_request_error(error, response);
@@ -153,7 +151,7 @@ let parser = function (history_manager, request, settings, logger) {
         util.printDuration(
           attempt,
           start_time,
-          DateTime.local(),
+          util.getNowDate(),
           `getOrdersUpdates(${util.formatDateForOrdersQuery(date)})`
         );
         let $$ = $.load(body);
@@ -182,7 +180,7 @@ let parser = function (history_manager, request, settings, logger) {
       const req = request.defaults({jar: jar});
       // HINT: use the same base url as for order details
       let details_url = settings.get('orders.details_url');
-      let start_time = DateTime.local();
+      let start_time = util.getNowDate();
 
       req.get(details_url, function (error, response, body) {
         logger.log(`---------------- ${order_number} ------------`, 'debug');
@@ -195,7 +193,7 @@ let parser = function (history_manager, request, settings, logger) {
         util.printDuration(
           0,
           start_time,
-          DateTime.local(),
+          util.getNowDate(),
           `checkSeizeResult(${order_number})`
         );
         let $$ = $.load(body);

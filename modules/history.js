@@ -1,4 +1,3 @@
-const { DateTime } = require('luxon');
 const Sequelize = require('sequelize');
 const Op = Sequelize.Op;
 
@@ -103,7 +102,7 @@ function initOrdersHistory() {
   });
 }
 
-function deleteOldHistory(cutoff_date = DateTime.local()) {
+function deleteOldHistory(cutoff_date = util.getNowDate()) {
   return Order.destroy({
     where: {
       date: {

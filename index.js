@@ -1,7 +1,6 @@
 require('newrelic');
 
 const requestGlobal = require('request');
-const { DateTime } = require('luxon');
 const express = require('express');
 const bodyParser = require('body-parser');
 
@@ -236,7 +235,7 @@ function getOrderUpdatesCallback(attempt, settings, orders, date) {
 }
 
 function getToday() {
-  let date = DateTime.local();
+  let date = util.getNowDate();
   today_attempt++;
   parserApi
     .getOrdersUpdates(today_attempt, date)
@@ -252,7 +251,7 @@ function getToday() {
 }
 
 function getTomorrow() {
-  let date = DateTime.local().plus({ days: 1 });
+  let date = util.getTomorrowDate();
   tomorrow_attempt++;
   parserApi
     .getOrdersUpdates(tomorrow_attempt, date)
@@ -316,8 +315,8 @@ async function sendOrderToTelegram (order_row, date) {
 
 function test_run() {
   if (settings) {
-    let date = DateTime.local();
-    // let date = DateTime.local().plus({ days: 1 });
+    let date = util.getNowDate();
+    // let date = util.getNowDate().plus({ days: 1 });
     let day = util.isToday(date) ? 'TODAY' : 'TOMORROW';
     // telegramApi.sendMessageToSubscriber(
     //   settings,
@@ -389,8 +388,8 @@ function test_run() {
     //     console.log('exit');
     //   });
 
-    // console.log(DateTime.local().toJSDate());
-    key = DateTime.local().toFormat(constants.ORDERS_HISTORY_DATE_FORMAT);
+    // console.log(util.getNowDate().toJSDate());
+    key = util.getNowDate().toFormat(constants.ORDERS_HISTORY_DATE_FORMAT);
   }
 }
 
