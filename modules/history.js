@@ -40,6 +40,18 @@ function printHistory(history) {
   }
 }
 
+function unmarkSeizedOrders() {
+  const where = { seized: true };
+  return Order
+    .findAll({ where: where })
+    .then(orders => {
+      let order_numbers = orders.map(order => order.OrderNumber);
+      Order.update({ seized: false }, { where: where });
+
+      return orders;
+    });
+}
+
 async function markSeizedOrders(order_numbers, date) {
   let result = [],
     date_key = getHistoryDateKey(date),
@@ -202,6 +214,8 @@ let history = function(settings, log) {
   this.checkProcessingOrder = checkProcessingOrder;
 
   this.markSeizedOrders = markSeizedOrders;
+
+  this.unmarkSeizedOrders = unmarkSeizedOrders;
 };
 
 module.exports = history;

@@ -142,19 +142,24 @@ let telegram = function(settings, logger) {
     });
   };
 
-  this.editSubscriberMessage = function (chat_id, message_id, reply_markup_object, date) {
+  this.editSubscriberMessageForBot = function (chat_id, message_id, reply_markup_object, bot) {
     let sanitized_chat_id = parseInt(chat_id, 10);
     if (isNaN(sanitized_chat_id)) {
       logger.log('chat_id is empty');
     }
 
-    let bot = util.isToday(date) ? bot_today : bot_tomorrow;
     let options = {
       chat_id: chat_id,
       message_id: message_id
     };
-    logger.log(`editSubscriberMessage. bot_id: ${bot.id}, chat_id: ${sanitized_chat_id}, message_id: ${message_id}`);
+    logger.log(`editSubscriberMessageForBot. bot_id: ${bot.id}, chat_id: ${sanitized_chat_id}, message_id: ${message_id}`);
     return bot.editMessageReplyMarkup(reply_markup_object, options);
+  };
+
+  this.editSubscriberMessage = function (chat_id, message_id, reply_markup_object, date) {
+    const bot = util.isToday(date) ? bot_today : bot_tomorrow;
+
+    return this.editSubscriberMessageForBot(chat_id, message_id, reply_markup_object, bot);
   };
 
   this.sendToTelegram = async function (settings, text, replyMarkup, date = util.getNowDate()) {
@@ -175,25 +180,43 @@ let telegram = function(settings, logger) {
   };
 
   // TODO: rename 'Telegram' functions
-  this.editMessagesInTelegram = async function (message_ids, replyMarkup, date = util.getNowDate()) {
-    let chat_ids = this.getChatIds();
-    // let message_ids = [];
+  this.editMessagesInTelegramForBot = async function (message_ids, replyMarkup, bot) {
+    const chat_ids = this.getChatIds();
     if (chat_ids && chat_ids.length > 0) {
-      logger.log(`sendToTelegram. destination chat_ids: ${chat_ids}`);
+      logger.log(`editMessagesInTelegramForBot. destination chat_ids: ${chat_ids}`);
       let parent = this;
       await util.asyncForEach(chat_ids, async (i, chat_id) => {
         await util.asyncForEach(message_ids, async (i, message_id) => {
           await parent
-            .editSubscriberMessage(chat_id, message_id, replyMarkup, date)
+            .editSubscriberMessageForBot(chat_id, message_id, replyMarkup, bot)
             .catch(error =>
-              logger.log(`editMessagesInTelegram chat_id: ${chat_ids}, message_id: ${message_id}, ERROR: ${error.message}`)
+              logger.log(`editMessagesInTelegramForBot chat_id: ${chat_ids}, message_id: ${message_id}, ERROR: ${error.message}`)
             );
             // .then(message => { message_ids.push(message.message_id) });
           await util.sleep(parent.getDelayBetweenRequests());
         });
       });
     }
-    // return message_ids;
+  };
+
+  this.editMessagesInTelegram = async function (message_ids, replyMarkup, date = util.getNowDate()) {
+    const bot = util.isToday(date) ? bot_today : bot_tomorrow;
+
+    this.editMessagesInTelegramForBot(message_ids, replyMarkup, bot);
+  };
+
+  this.restoreSeizedMessages = function(orders) {
+    const parent = this;
+    orders.forEach(order => {
+      let bot =
+        util.wasOrderSentToTodayBot(order) ? bot_today : bot_tomorrow;
+      parent
+        .editMessagesInTelegramForBot(
+          order.message_ids,
+          parent.getReplyMarkupBotApi(order.orderNumber),
+          bot
+        );
+    });
   };
 
   this.getApiToken = function (settings, date = util.getNowDate()) {

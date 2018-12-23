@@ -58,6 +58,16 @@ let util = function() {
   this.getTomorrowDate = function() {
     return DateTime.local().plus({ days: 1 });
   };
+
+  this.wasOrderSentToTodayBot = function(order) {
+    let order_today = DateTime.fromJSDate(order.createdAt);
+    let order_date = DateTime.fromFormat(order.date, constants.ORDERS_HISTORY_DATE_FORMAT);
+
+    return order_date &&
+      order_date.year == order_today.year &&
+      order_date.month == order_today.month &&
+      order_date.day == order_today.day;
+  }
 };
 
 module.exports = new util();
