@@ -12,11 +12,11 @@ const telegram = require('./modules/telegram');
 const util = require('./modules/util');
 const parser = require('./modules/parser');
 const history = require('./modules/history');
-const testScripts = require('./modules/test');
+// const testScripts = require('./modules/test');
 const packageInfo = require('./package.json');
 
 const request = requestGlobal.defaults({jar: true});
-const telegramApi = new telegram(settings, logger);
+const telegramApi = new telegram(settings, logger, true);
 const historyManager = new history(settings, logger);
 const parserApi = new parser(historyManager, request, settings, logger);
 
@@ -285,7 +285,7 @@ function processSeizedOrders(attempt, updates, date) {
         }
 
         if (seized_orders.length > 5) {
-          let text = 'ATTENTION, MASS SEIZING! (attempt ${attempt})';
+          let text = `ATTENTION, MASS SEIZING! (attempt ${attempt})`;
           logger.log(text);
 
           if (logger.isEqualOrHigherLevel('debug')) {

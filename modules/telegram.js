@@ -17,7 +17,7 @@ function answerCallbackQueryTomorrow(query_id, text) {
   bot_tomorrow.answerCallbackQuery(query_id, { text: text, show_alert: true } );
 };
 
-let telegram = function(settings, logger) {
+let telegram = function(settings, logger, set_webhooks = false) {
   let today_token = settings.get('credentials.telegram_bot.today.api_token'),
     tomorrow_token = settings.get('credentials.telegram_bot.tomorrow.api_token'),
     message_prepender = settings.get('debug.message_prepender'),
@@ -31,7 +31,9 @@ let telegram = function(settings, logger) {
   bot_today.id = 'bot_today';
   sent_message_log_length = settings.get('debug.sent_message_log_length');
 
-  if (application_name && is_production_env) {
+  if (application_name && is_production_env && set_webhooks) {
+    // TODO: move webhooks initialization to explicit routine to be run consequently
+    // before login
     const parent = this;
     logger.log('Setting TODAY bot webhook');
     bot_today
@@ -46,12 +48,11 @@ let telegram = function(settings, logger) {
           .setWebHook(`https://${application_name}.herokuapp.com/${tomorrow_token}`);
       })
       .then(() => logger.log('Setting TOMORROW bot webhook - DONE'))
+      .then(() => logger.log('Telegram webhooks initialization passed'))
       .catch(error => logger.log(error.message));
-    logger.log('Telegram webhooks initialization passed');
   }
-  else {
+  if (!application_name)
     logger.log('Параметр application_name не установлен');
-  }
 
   this.mapGetUpdatesElement = function (elem) {
     console.log('mapGetUpdatesElement', elem);
