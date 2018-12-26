@@ -111,6 +111,7 @@ function initOrdersHistory() {
     logger.log(`initOrdersHistory, loaded: ${orders.length}`);
     orders.forEach(order => global_history[getHistoryKey(order)] = order);
     // printHistory(global_history);
+    return orders;
   });
 }
 
@@ -124,22 +125,22 @@ function deleteOldHistory(cutoff_date = util.getNowDate()) {
   });
 };
 
-function buildOrder(date_key, order_number, message_ids) {
+function buildOrder(date_key, order_number, sent_messages) {
   return Order.build(
     {
       date: date_key,
       orderNumber: order_number,
-      message_ids: message_ids
+      sent_messages: sent_messages
     }
   );
 }
 
-function saveOrderToHistory(orderNumber, date, message_ids) {
+function saveOrderToHistory(orderNumber, date, sent_messages) {
   date_key = getHistoryDateKey(date);
   history_key = getHistoryKeySimple(date_key, orderNumber);
   // logger.log(`check before save history ${history_key} ${global_history[history_key] && global_history[history_key].orderNumber}`);
   if (!global_history[history_key]) {
-    order = buildOrder(date_key, orderNumber, message_ids);
+    order = buildOrder(date_key, orderNumber, sent_messages);
     global_history[history_key] = order;
     // logger.log(`save to history ${history_key}: ${order.orderNumber}`);
     order.save();

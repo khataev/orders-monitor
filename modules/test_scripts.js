@@ -17,14 +17,16 @@ const historyManager = new history(settings, logger);
 const parserApi = new parser(historyManager, request, settings, logger);
 
 let test = function () {
-  this.test_run = function () {
+  this.test_run = async function () {
     if (settings) {
-      historyManager
-        .unmarkSeizedOrders()
-        .then(orders => telegramApi.restoreSeizedMessages(orders))
-        .then(() => { historyManager.closeConnections() })
-        .catch(error => logger.log(error));
+      // ================= RESTORE SEIZED MESSAGES
+      // historyManager
+      //   .unmarkSeizedOrders()
+      //   .then(orders => telegramApi.restoreSeizedMessages(orders))
+      //   .then(() => { historyManager.closeConnections() })
+      //   .catch(error => logger.log(error));
 
+      // ================= RAW EDIT MESSAGE REPLY MARKUP
       // let bot = telegramApi.getTodayBot();
       // // let reply_markup_object = telegramApi.getEmptyReplyMarkupBotOptions();
       // let reply_markup_object = telegramApi.getReplyMarkup('50140368');
@@ -35,8 +37,7 @@ let test = function () {
       // let message = bot
       //   .editMessageReplyMarkup(reply_markup_object, options);
 
-
-
+      // ================= EDIT MESSAGE
       // telegramApi
       //   .editSubscriberMessageForBot(
       //     176212258,
@@ -45,9 +46,10 @@ let test = function () {
       //     telegramApi.getTodayBot()
       //   );
 
-      // let date = util.getNowDate();
+      // ================= SEIZE ORDERS
+      let date = util.getNowDate();
       // let date = util.getNowDate().plus({ days: 1 });
-      // let day = util.isToday(date) ? 'TODAY' : 'TOMORROW';
+      let day = util.isToday(date) ? 'TODAY' : 'TOMORROW';
       // telegramApi.sendMessageToSubscriber(
       //   settings,
       //   '176212258',
@@ -58,28 +60,34 @@ let test = function () {
 
       // telegramApi.editMessagesInTelegram([10880], parserApi.seizedOrderReplyMarkup(), date);
 
-      // let order_numbers = ['50031267'];
-      // historyManager
-      //   .initOrdersHistory()
-      //   .then(orders => { console.log('INIT COMPLETE'); })
-      //   .then(() => {
-      //
-      //     historyManager.markSeizedOrders(order_numbers, date)
-      //       .then((seized_orders) => {
-      //         // TO DO: update messages in telegram
-      //         if (seized_orders.length > 0) {
-      //           let seized_order_numbers = seized_orders.map(order => order.orderNumber);
-      //           let message_ids = seized_orders.flatMap(order => order.message_ids);
-      //           // TO DO: move log line to debug mode
-      //           logger.log(`------------- ${day} SEIZED: ${seized_order_numbers} -------------`);
-      //           telegramApi
-      //             .editMessagesInTelegram(message_ids, telegramApi.seizedOrderReplyMarkup(), date);
-      //         }
-      //       })
-      //       .catch(error => logger.log(error));
-      //
-      //   });
+      // current order
+      let order_numbers = ['50244194'];
+      historyManager
+        .initOrdersHistory()
+        .then(orders => {
+          console.log('INIT COMPLETE:');
+        })
+        .then(() => {
+          historyManager.markSeizedOrders(order_numbers, date)
+            .then(async seized_orders => {
+              if (seized_orders.length > 0) {
+                let seized_order_numbers = seized_orders.map(order => order.orderNumber);
+                logger.log(`------------- ${day} SEIZED: ${seized_order_numbers} -------------`);
+                await util.asyncForEach(seized_orders, async (i, order) => {
+                  await telegramApi.editMessagesInTelegram(
+                    order.sent_messages,
+                    telegramApi.getEmptyReplyMarkupBotOptions(),
+                    date
+                  );
+                });
+              }
+            })
+            .then(() => { historyManager.closeConnections() })
+            .catch(error => logger.log(error));
 
+        });
+
+      // ================= SEIZE ORDER AS
       // logInAs(settings, '1917042')
       // logInAs(settings, '253850760')
       //   .then(jar => parserApi.checkSeizeResult(requestGlobal, '4918996', jar))
@@ -122,6 +130,8 @@ let test = function () {
       key = util.getNowDate().toFormat(constants.ORDERS_HISTORY_DATE_FORMAT);
     }
   };
-}
+};
 
-module.exports = new test();
+new test().test_run();
+
+// module.exports = new test();

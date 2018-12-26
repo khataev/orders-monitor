@@ -145,7 +145,7 @@ let telegram = function(settings, logger, set_webhooks = false) {
 
   this.sendToTelegram = async function (settings, text, reply_markup_options, date = util.getNowDate()) {
     let chat_ids = this.getChatIds();
-    let message_ids = [];
+    let sent_messages = {};
     if (chat_ids && chat_ids.length > 0) {
       logger.log(`sendToTelegram. destination chat_ids: ${chat_ids}`);
       // TODO: how to avoid this context hoisting?
@@ -153,37 +153,38 @@ let telegram = function(settings, logger, set_webhooks = false) {
       await util.asyncForEach(chat_ids, async function (i, chat_id) {
         await parent
           .sendMessageToSubscriber(settings, chat_id, text, reply_markup_options, date)
-          .then(message => { message_ids.push(message.message_id) });
+          .then(message => sent_messages[chat_id.toString()] = message.message_id);
         await util.sleep(parent.getDelayBetweenRequests());
       });
     }
-    return message_ids;
+    return sent_messages;
   };
 
   // TODO: rename 'Telegram' functions
-  this.editMessagesInTelegramForBot = async function (message_ids, reply_markup, bot) {
-    const chat_ids = this.getChatIds();
+  this.editMessagesInTelegramForBot = async function (sent_messages, reply_markup, bot) {
+    const chat_ids = Object.getOwnPropertyNames(sent_messages);
     if (chat_ids && chat_ids.length > 0) {
       logger.log(`editMessagesInTelegramForBot. destination chat_ids: ${chat_ids}`);
       let parent = this;
       await util.asyncForEach(chat_ids, async (i, chat_id) => {
-        await util.asyncForEach(message_ids, async (i, message_id) => {
-          await parent
+          let message_id = sent_messages[chat_id];
+          parent
             .editSubscriberMessageForBot(chat_id, message_id, reply_markup, bot)
-            .catch(error =>
-              logger.log(`editMessagesInTelegramForBot. chat_id: ${chat_ids}, message_id: ${message_id}, ERROR: ${error.message}`)
-            );
-            // .then(message => { message_ids.push(message.message_id) });
+            .catch(error => {
+              logger
+                .log(
+                  `editMessagesInTelegramForBot. chat_id: ${chat_id}, message_id: ${message_id}, ERROR: ${error.message}`
+                );
+            });
           await util.sleep(parent.getDelayBetweenRequests());
-        });
       });
     }
   };
 
-  this.editMessagesInTelegram = async function (message_ids, reply_markup, date = util.getNowDate()) {
+  this.editMessagesInTelegram = function (sent_messages, reply_markup, date = util.getNowDate()) {
     const bot = util.isToday(date) ? bot_today : bot_tomorrow;
 
-    this.editMessagesInTelegramForBot(message_ids, reply_markup, bot);
+    return this.editMessagesInTelegramForBot(sent_messages, reply_markup, bot);
   };
 
   this.restoreSeizedMessages = async function(orders) {
@@ -191,7 +192,7 @@ let telegram = function(settings, logger, set_webhooks = false) {
     await util.asyncForEach(orders, async (i, order) => {
       let bot = util.wasOrderSentToTodayBot(order) ? bot_today : bot_tomorrow;
       await parent.editMessagesInTelegramForBot(
-        order.message_ids,
+        order.sent_messages,
         parent.getReplyMarkup(order.orderNumber),
         bot
       );

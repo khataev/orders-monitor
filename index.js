@@ -12,7 +12,6 @@ const telegram = require('./modules/telegram');
 const util = require('./modules/util');
 const parser = require('./modules/parser');
 const history = require('./modules/history');
-// const testScripts = require('./modules/test');
 const packageInfo = require('./package.json');
 
 const request = requestGlobal.defaults({jar: true});
@@ -205,12 +204,11 @@ function seizeOrder(order_number, jar) {
 function positiveStatusCallback(order_row, date) {
   let orderNumber = parserApi.getOrderNumber(order_row);
   sendOrderToTelegram(order_row, date)
-    .then((message_ids) => {
-        // historyManager.saveMessageIdsForOrder(orderNumber, message_ids)
+    .then((sent_messages) => {
         historyManager.saveOrderToHistory(
           orderNumber,
           date,
-          message_ids
+          sent_messages
         );
         historyManager.releaseProcessingOrder(orderNumber);
       }
@@ -273,15 +271,19 @@ function processSeizedOrders(attempt, updates, date) {
 
   logger.log(`${day} CURRENT (attempt ${attempt}): ${order_numbers}`);
   historyManager.markSeizedOrders(order_numbers, date)
-    .then((seized_orders) => {
+    .then(async seized_orders => {
       if (seized_orders.length > 0) {
         let seized_order_numbers = seized_orders.map(order => order.orderNumber);
-        let message_ids = seized_orders.flatMap(order => order.message_ids);
         logger.log(`${day} SEIZED (attempt ${attempt}): ${seized_order_numbers}`);
 
         if (settings.get('features.seized_order_message_editing') === 'enabled') {
-          telegramApi
-            .editMessagesInTelegram(message_ids, telegramApi.getEmptyReplyMarkupBotOptions(), date);
+          await util.asyncForEach(seized_orders, async (i, order) => {
+            await telegramApi.editMessagesInTelegram(
+              order.sent_messages,
+              telegramApi.getEmptyReplyMarkupBotOptions(),
+              date
+            );
+          });
         }
 
         if (seized_orders.length > 5) {
@@ -320,4 +322,3 @@ async function sendOrderToTelegram (order_row, date) {
 }
 
 run();
-// testScripts.test_run();
