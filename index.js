@@ -278,10 +278,13 @@ function processSeizedOrders(attempt, updates, date) {
 
         if (settings.get('features.seized_order_message_editing') === 'enabled') {
           await util.asyncForEach(seized_orders, async (i, order) => {
-            await telegramApi.editMessagesInTelegram(
+            let bot = util.wasOrderSentToTodayBot(order) ?
+              telegramApi.getTodayBot() :
+              telegramApi.getTomorrowBot();
+            await telegramApi.editMessagesInTelegramForBot(
               order.sent_messages,
               telegramApi.getEmptyReplyMarkupBotOptions(),
-              date
+              bot
             );
           });
         }
