@@ -307,13 +307,17 @@ function processSeizedOrders(attempt, updates, date) {
     .catch(error => logger.log(error));
 }
 
-async function startUpdatesPolling(settings) {
+function startUpdatesPolling(settings) {
   let update_interval = settings.get('orders.update_interval') * 1000;
-  let attempt = 0;
+  let half_interval = update_interval/2;
 
-  setInterval(getToday, update_interval);
-  await util.sleep(update_interval/2);
-  setInterval(getTomorrow, update_interval);
+  setInterval(poll, update_interval, half_interval)
+}
+
+async function poll(update_interval) {
+  getToday();
+  await util.sleep(update_interval);
+  getTomorrow();
 }
 
 async function sendOrderToTelegram (order_row, date) {
