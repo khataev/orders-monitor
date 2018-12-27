@@ -95,6 +95,7 @@ let telegram = function(settings, logger, set_webhooks = false) {
   };
 
   this.getChatIds = function (){
+    // TODO: it should return array of sanitized ids (excluding trash symbolsa like space)
     return settings.get('credentials.telegram_bot.chat_ids');
   };
 
@@ -153,7 +154,7 @@ let telegram = function(settings, logger, set_webhooks = false) {
       await util.asyncForEach(chat_ids, async function (i, chat_id) {
         await parent
           .sendMessageToSubscriber(settings, chat_id, text, reply_markup_options, date)
-          .then(message => sent_messages[chat_id.toString()] = message.message_id);
+          .then(message => sent_messages[chat_id.toString().trim()] = message.message_id);
         await util.sleep(parent.getDelayBetweenRequests());
       });
     }
@@ -162,7 +163,10 @@ let telegram = function(settings, logger, set_webhooks = false) {
 
   // TODO: rename 'Telegram' functions
   this.editMessagesInTelegramForBot = async function (sent_messages, reply_markup, bot) {
-    const chat_ids = Object.getOwnPropertyNames(sent_messages);
+    // TODO: temporarily or not?
+    const chat_ids = Object
+      .getOwnPropertyNames(sent_messages)
+      .map(chat_id => chat_id.trim());
     if (chat_ids && chat_ids.length > 0) {
       logger.log(`editMessagesInTelegramForBot. destination chat_ids: ${chat_ids}`);
       let parent = this;
