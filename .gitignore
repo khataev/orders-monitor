@@ -1,5 +1,6 @@
 /.idea
 /log/*
+config/development.json
 certs
 orders_history.yml
 orders-monitor
