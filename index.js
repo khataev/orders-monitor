@@ -295,7 +295,6 @@ function processSeizedOrders(attempt, updates, date) {
 
           if (logger.isEqualOrHigherLevel('debug')) {
             telegramApi.sendToTelegram(
-              settings,
               text,
               telegramApi.getEmptyReplyMarkupBotOptions(),
               date
@@ -325,7 +324,7 @@ async function sendOrderToTelegram (order_row, date) {
   const replyMarkup = telegramApi.getReplyMarkupBotApiOptions(orderNumber);
   const text = parserApi.renderOrderData(order_row);
 
-  return telegramApi.sendToTelegram(settings, text, replyMarkup, date);
+  return telegramApi.sendToTelegram(text, replyMarkup, date);
 }
 
 run();

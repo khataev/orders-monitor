@@ -193,4 +193,13 @@ config.loadFile('./config/' + env + '.json');
 // Perform validation
 config.validate({allowed: 'strict'});
 
+// custom functions
+config.isProductionEnv = function() {
+  return this.get('env') === 'production';
+};
+
+config.isDevelopmentEnv = function() {
+  return this.get('env') === 'development';
+};
+
 module.exports = config;

@@ -22,8 +22,7 @@ let telegram = function(settings, logger, set_webhooks = false) {
     tomorrow_token = settings.get('credentials.telegram_bot.tomorrow.api_token'),
     message_prepender = settings.get('debug.message_prepender'),
     application_name = settings.get('application_name'),
-    is_production_env = settings.get('env') === 'production';
-  // TODO: helper for production env
+    is_production_env = settings.isProductionEnv();
 
   bot_tomorrow = new Bot(tomorrow_token, { polling: false });
   bot_tomorrow.id = 'bot_tomorrow';
@@ -95,15 +94,14 @@ let telegram = function(settings, logger, set_webhooks = false) {
   };
 
   this.getChatIds = function (){
-    // TODO: it should return array of sanitized ids (excluding trash symbolsa like space)
-    return settings.get('credentials.telegram_bot.chat_ids');
+    return settings
+      .get('credentials.telegram_bot.chat_ids')
+      .map(chat_id => chat_id.toString().trim());
   };
 
   // TODO: rollback save to history if send failed
-  // TODO: no more need of settings
-  this.sendMessageToSubscriber = function (settings, chat_id, text, reply_markup_options, date) {
+  this.sendMessageToSubscriber = function (chat_id, text, reply_markup_options, date) {
     let sanitized_chat_id = parseInt(chat_id, 10);
-    // TODO: need more sofisticated check
     if (isNaN(sanitized_chat_id)) {
       logger.log('chat_id is empty');
     }
@@ -144,7 +142,7 @@ let telegram = function(settings, logger, set_webhooks = false) {
     return this.editSubscriberMessageForBot(chat_id, message_id, reply_markup_options, bot);
   };
 
-  this.sendToTelegram = async function (settings, text, reply_markup_options, date = util.getNowDate()) {
+  this.sendToTelegram = async function (text, reply_markup_options, date = util.getNowDate()) {
     let chat_ids = this.getChatIds();
     let sent_messages = {};
     if (chat_ids && chat_ids.length > 0) {
@@ -153,8 +151,8 @@ let telegram = function(settings, logger, set_webhooks = false) {
       let parent = this;
       await util.asyncForEach(chat_ids, async function (i, chat_id) {
         await parent
-          .sendMessageToSubscriber(settings, chat_id, text, reply_markup_options, date)
-          .then(message => sent_messages[chat_id.toString().trim()] = message.message_id);
+          .sendMessageToSubscriber(chat_id, text, reply_markup_options, date)
+          .then(message => sent_messages[chat_id] = message.message_id);
         await util.sleep(parent.getDelayBetweenRequests());
       });
     }
@@ -163,10 +161,7 @@ let telegram = function(settings, logger, set_webhooks = false) {
 
   // TODO: rename 'Telegram' functions
   this.editMessagesInTelegramForBot = async function (sent_messages, reply_markup, bot) {
-    // TODO: temporarily or not?
-    const chat_ids = Object
-      .getOwnPropertyNames(sent_messages)
-      .map(chat_id => chat_id.trim());
+    const chat_ids = Object.getOwnPropertyNames(sent_messages);
     if (chat_ids && chat_ids.length > 0) {
       logger.log(`editMessagesInTelegramForBot. destination chat_ids: ${chat_ids}`);
       let parent = this;
@@ -233,11 +228,11 @@ let telegram = function(settings, logger, set_webhooks = false) {
 
   this.getTodayBot = function() {
     return bot_today;
-  }
+  };
 
   this.getTomorrowBot = function() {
     return bot_tomorrow;
-  }
+  };
 };
 
 module.exports = telegram;
