@@ -167,7 +167,7 @@ const config = convict({
     log_level: {
       doc: "Log level",
       format: function check(val) {
-        regexp = /debug|info/i;
+        regexp = /debug|info|warn|error|fatal/i;
         if(!regexp.test(val)) {
           throw new Error(`Unpermitted log level: ${val}`);
         }

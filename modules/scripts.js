@@ -8,7 +8,7 @@ const telegramApi = new telegram(settings, logger);
 
 
 function run(script_name) {
-  logger.log(`RUNNING SCRIPT: ${script_name}`);
+  logger.warn(`RUNNING SCRIPT: ${script_name}`);
 
   if (script_name === 'history:purge')
     historyManager.purgeHistory()
@@ -37,7 +37,7 @@ function run(script_name) {
 let script_name = process.argv[2];
 
 if(!script_name) {
-  logger.log('Script name is missing!');
+  logger.error('Script name is missing!');
 }
 else {
   run(script_name);

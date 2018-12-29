@@ -72,7 +72,7 @@ let test = function () {
             .then(async seized_orders => {
               if (seized_orders.length > 0) {
                 let seized_order_numbers = seized_orders.map(order => order.orderNumber);
-                logger.log(`------------- ${day} SEIZED: ${seized_order_numbers} -------------`);
+                logger.warn(`------------- ${day} SEIZED: ${seized_order_numbers} -------------`);
                 await util.asyncForEach(seized_orders, async (i, order) => {
                   await telegramApi.editMessagesInTelegram(
                     order.sent_messages,

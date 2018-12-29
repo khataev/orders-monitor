@@ -34,27 +34,27 @@ let telegram = function(settings, logger, set_webhooks = false) {
     // TODO: move webhooks initialization to explicit routine to be run consequently
     // before login
     const parent = this;
-    logger.log('Setting TODAY bot webhook');
+    logger.warn('Setting TODAY bot webhook');
     bot_today
       .setWebHook(`https://${application_name}.herokuapp.com/${today_token}`)
-      .then(() => logger.log('Setting TODAY bot webhook - DONE'))
+      .then(() => logger.warn('Setting TODAY bot webhook - DONE'))
       .then(() => {
-        logger.log('Setting TOMORROW bot webhook');
+        logger.warn('Setting TOMORROW bot webhook');
         return util.sleep(parent.getDelayBetweenRequests());
       })
       .then(() => {
         return bot_tomorrow
           .setWebHook(`https://${application_name}.herokuapp.com/${tomorrow_token}`);
       })
-      .then(() => logger.log('Setting TOMORROW bot webhook - DONE'))
-      .then(() => logger.log('Telegram webhooks initialization passed'))
-      .catch(error => logger.log(error.message));
+      .then(() => logger.warn('Setting TOMORROW bot webhook - DONE'))
+      .then(() => logger.warn('Telegram webhooks initialization passed'))
+      .catch(error => logger.error(error.message));
   }
   if (!application_name)
-    logger.log('Параметр application_name не установлен');
+    logger.error('Параметр application_name не установлен');
 
   this.mapGetUpdatesElement = function (elem) {
-    console.log('mapGetUpdatesElement', elem);
+    logger.debug('mapGetUpdatesElement', elem);
     return elem['message']['chat']['id'];
   };
 
@@ -103,36 +103,36 @@ let telegram = function(settings, logger, set_webhooks = false) {
   this.sendMessageToSubscriber = function (chat_id, text, reply_markup_options, date) {
     let sanitized_chat_id = parseInt(chat_id, 10);
     if (isNaN(sanitized_chat_id)) {
-      logger.log('chat_id is empty');
+      logger.error('chat_id is empty');
     }
     let sanitized_text = util.sanitizeText(`${message_prepender}${text}`.trim());
     // let delay = this.getDelayBetweenRequests();
     // let url = `https://api.telegram.org/bot${api_token}/sendMessage?chat_id=${chat_id}&text=${encoded_text}`;
-    logger.log(`sendMessageToSubscriber. chat_id: ${sanitized_chat_id}, text: ${sanitized_text}`);
+    logger.info(`sendMessageToSubscriber. chat_id: ${sanitized_chat_id}, text: ${sanitized_text}`);
 
     let bot = util.isToday(date) ? bot_today : bot_tomorrow;
     return bot
       .sendMessage(sanitized_chat_id, sanitized_text, reply_markup_options)
       .then(message => {
-        logger.log(
+        logger.warn(
           `sendMessageToSubscriber. SEND! chat_id: ${sanitized_chat_id}, text: ${cropSentMessage(sanitized_text)}`
         );
+        logger.debug(message);
         return message;
-        // logger.log(message);
     });
   };
 
   this.editSubscriberMessageForBot = function (chat_id, message_id, reply_markup, bot) {
     let sanitized_chat_id = parseInt(chat_id, 10);
     if (isNaN(sanitized_chat_id)) {
-      logger.log('chat_id is empty');
+      logger.error('chat_id is empty');
     }
 
     let options = {
       chat_id: chat_id,
       message_id: message_id
     };
-    logger.log(`editSubscriberMessageForBot. bot_id: ${bot.id}, chat_id: ${sanitized_chat_id}, message_id: ${message_id}`);
+    logger.warn(`editSubscriberMessageForBot. bot_id: ${bot.id}, chat_id: ${sanitized_chat_id}, message_id: ${message_id}`);
     return bot.editMessageReplyMarkup(reply_markup, options);
   };
 
@@ -146,7 +146,7 @@ let telegram = function(settings, logger, set_webhooks = false) {
     let chat_ids = this.getChatIds();
     let sent_messages = {};
     if (chat_ids && chat_ids.length > 0) {
-      logger.log(`sendToTelegram. destination chat_ids: ${chat_ids}`);
+      logger.warn(`sendToTelegram. destination chat_ids: ${chat_ids}`);
       // TODO: how to avoid this context hoisting?
       let parent = this;
       await util.asyncForEach(chat_ids, async function (i, chat_id) {
@@ -163,7 +163,7 @@ let telegram = function(settings, logger, set_webhooks = false) {
   this.editMessagesInTelegramForBot = async function (sent_messages, reply_markup, bot) {
     const chat_ids = Object.getOwnPropertyNames(sent_messages);
     if (chat_ids && chat_ids.length > 0) {
-      logger.log(`editMessagesInTelegramForBot. destination chat_ids: ${chat_ids}`);
+      logger.info(`editMessagesInTelegramForBot. destination chat_ids: ${chat_ids}`);
       let parent = this;
       await util.asyncForEach(chat_ids, async (i, chat_id) => {
           let message_id = sent_messages[chat_id];
@@ -171,7 +171,7 @@ let telegram = function(settings, logger, set_webhooks = false) {
             .editSubscriberMessageForBot(chat_id, message_id, reply_markup, bot)
             .catch(error => {
               logger
-                .log(
+                .warn(
                   `editMessagesInTelegramForBot. chat_id: ${chat_id}, message_id: ${message_id}, ERROR: ${error.message}`
                 );
             });

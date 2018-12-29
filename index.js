@@ -42,11 +42,11 @@ function handleSeizeButton(req, res, bot = 'today') {
     .then(jar => parserApi.checkSeizeResult(requestGlobal, order_number, jar))
     .then(orderSeized => {
       if (orderSeized) {
-        logger.log(`Заказ ${order_number} взят`);
+        logger.warn(`Заказ ${order_number} взят`);
         telegramApi.answerCallbackQuery(query_id, `Заказ ${order_number} взят`, bot);
       }
       else {
-        logger.log(`Заказ ${order_number} не взят, возможно, вас опередили`);
+        logger.warn(`Заказ ${order_number} не взят, возможно, вас опередили`);
         telegramApi
           .answerCallbackQuery(
             query_id,
@@ -56,7 +56,7 @@ function handleSeizeButton(req, res, bot = 'today') {
       }
     })
     .catch(error => {
-      logger.log(error);
+      logger.error(error);
       telegramApi.answerCallbackQuery(query_id, `Ошибка взятия заказа: ${error}`, bot);
     });
 }
@@ -66,22 +66,22 @@ function start_simple_server() {
     const http = require('http')
     let port = process.env.PORT || 80;
     const server = http.createServer((request, response) => {
-      logger.log(request.url);
+      logger.warn(request.url);
       response.end('Hello Node.js Server!');
     });
 
     server.listen(port, (err) => {
       if (err) {
-        return logger.log(`something bad happened: ${err}`);
+        return logger.error(`something bad happened: ${err}`);
       }
-      logger.log(`server is listening on ${port}`);
+      logger.warn(`server is listening on ${port}`);
     })
   }
 }
 
 function start_express_server() {
   if (settings.get('env') === 'production') {
-    logger.log('start_express_server');
+    logger.warn('start_express_server');
     let app = express(),
       today_token = settings.get('credentials.telegram_bot.today.api_token'),
       tomorrow_token = settings.get('credentials.telegram_bot.tomorrow.api_token');
@@ -118,11 +118,12 @@ function run() {
     let manager_accounts = settings.get(
       'credentials.personal_cabinet.master_accounts'
     );
-    logger.log(manager_accounts, 'debug');
+    logger.debug(manager_accounts);
+    logger.fatal(`started with '${logger.currentLogLevel()}' log level`);
 
     historyManager
       .initOrdersHistory()
-      .then(orders => { logger.log('INIT ORDERS HISTORY COMPLETE'); })
+      .then(orders => { logger.warn('INIT ORDERS HISTORY COMPLETE'); })
       .then(result => {
         // logger.log(settings.get('orders.statuses'));
         logIn(settings, startUpdatesPolling);
@@ -246,7 +247,7 @@ function getToday() {
       return updates;
     })
     .then(updates => processSeizedOrders(today_attempt, updates, date))
-    .catch(error => logger.log(`getToday error: ${error}`));
+    .catch(error => logger.error(`getToday error: ${error}`));
 }
 
 function getTomorrow() {
@@ -261,7 +262,7 @@ function getTomorrow() {
       return updates;
     })
     .then(updates => processSeizedOrders(tomorrow_attempt, updates, date))
-    .catch(error => logger.log(`getTomorrow error: ${error}`));
+    .catch(error => logger.error(`getTomorrow error: ${error}`));
 }
 
 // process seized orders
@@ -270,11 +271,12 @@ function processSeizedOrders(attempt, updates, date) {
   let order_numbers = parserApi.getOrderNumbers(updates.current_orders);
 
   logger.log(`${day} CURRENT (attempt ${attempt}): ${order_numbers}`);
+  logger.info(`${day} CURRENT (attempt ${attempt}): ${order_numbers.length}`);
   historyManager.markSeizedOrders(order_numbers, date)
     .then(async seized_orders => {
       if (seized_orders.length > 0) {
         let seized_order_numbers = seized_orders.map(order => order.orderNumber);
-        logger.log(`${day} SEIZED (attempt ${attempt}): ${seized_order_numbers}`);
+        logger.warn(`${day} SEIZED (attempt ${attempt}): ${seized_order_numbers}`);
 
         if (settings.get('features.seized_order_message_editing') === 'enabled') {
           await util.asyncForEach(seized_orders, async (i, order) => {
@@ -291,7 +293,7 @@ function processSeizedOrders(attempt, updates, date) {
 
         if (seized_orders.length > 5) {
           let text = `ATTENTION, MASS SEIZING! (attempt ${attempt})`;
-          logger.log(text);
+          logger.warn(text);
 
           if (logger.isEqualOrHigherLevel('debug')) {
             telegramApi.sendToTelegram(
@@ -303,7 +305,7 @@ function processSeizedOrders(attempt, updates, date) {
         }
       }
     })
-    .catch(error => logger.log(error));
+    .catch(error => logger.error(error));
 }
 
 function startUpdatesPolling(settings) {

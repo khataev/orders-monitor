@@ -81,11 +81,11 @@ function getOrderNumbers(orders_element) {
 }
 
 function logAbsentOrdersBody(logger, attempt, body) {
-  logger.log(`ABSENT ORDERS TABLE attempt: ${attempt}`);
-  logger.log(`attempt: ${attempt}, body is empty: ${body === ''}`, 'debug');
-  logger.log(`attempt: ${attempt}, body is undefined: ${body === undefined}`, 'debug');
-  logger.log(`attempt: ${attempt}, body is null: ${body === null}`, 'debug');
-  logger.log(body, 'debug');
+  logger.info(`ABSENT ORDERS TABLE attempt: ${attempt}`);
+  logger.debug(`attempt: ${attempt}, body is empty: ${body === ''}`);
+  logger.debug(`attempt: ${attempt}, body is undefined: ${body === undefined}`);
+  logger.debug(`attempt: ${attempt}, body is null: ${body === null}`);
+  logger.debug(body);
 }
 
 function getOrderStatus (settings, logger, request, attempt, order, date, positive_callback, negative_callback) {
@@ -131,7 +131,7 @@ let parser = function (history_manager, request, settings, logger) {
 
   this.getOrdersUpdates = function (attempt, date = util.getNowDate()) {
     return new Promise((resolve, reject) => {
-      logger.log(`getOrdersUpdates, attempt: ${attempt}, for: ${util.formatDateForOrdersQuery(date)}`);
+      logger.warn(`getOrdersUpdates, attempt: ${attempt}, for: ${util.formatDateForOrdersQuery(date)}`);
       let data = {
         url: orders_url,
         qs: { 'date': util.formatDateForOrdersQuery(date) }
@@ -176,15 +176,15 @@ let parser = function (history_manager, request, settings, logger) {
 
   this.checkSeizeResult = function (request, order_number, jar) {
     return new Promise((resolve, reject) => {
-      logger.log(`checkSeizeResult, order_number: ${order_number}`);
+      logger.warn(`checkSeizeResult, order_number: ${order_number}`);
       const req = request.defaults({jar: jar});
       // HINT: use the same base url as for order details
       let details_url = settings.get('orders.details_url');
       let start_time = util.getNowDate();
 
       req.get(details_url, function (error, response, body) {
-        logger.log(`---------------- ${order_number} ------------`, 'debug');
-        logger.log(body, 'debug');
+        logger.debug(`---------------- ${order_number} ------------`);
+        logger.debug(body);
         if (error) {
           util.log_request_error(error, response);
           reject(error);

@@ -7,7 +7,7 @@ let util = function() {
 
   this.sleep = async function (ms) {
     return new Promise(resolve => {
-      logger.log(`sleep for ${ms} ms`);
+      logger.info(`sleep for ${ms} ms`);
       setTimeout(resolve, ms);
     });
   };
@@ -41,14 +41,14 @@ let util = function() {
 
   this.printDuration = function(attempt, start, end, custom_text) {
     request_duration = end.diff(start, ['seconds', 'milliseconds']);
-    logger.log(`request ${custom_text} attempt ${attempt} duration: ${request_duration.toFormat('s.SS')}`);
+    logger.warn(`request ${custom_text} attempt ${attempt} duration: ${request_duration.toFormat('s.SS')}`);
   };
 
   this.log_request_error = function (error, response) {
     // Print the error if one occurred
-    logger.log(`error: ${error}`);
+    logger.error(`error: ${error}`);
     // Print the response status code if a response was received
-    logger.log(`statusCode: ${response && response.statusCode}`);
+    logger.error(`statusCode: ${response && response.statusCode}`);
   };
 
   this.getNowDate = function() {

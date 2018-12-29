@@ -14,18 +14,18 @@ let global_history = {};
 let processing_orders = {};
 
 function lockProcessingOrder(orderNumber) {
-  logger.log(`LOCK ProcessingOrder: ${orderNumber}`, 'debug');
+  logger.debug(`LOCK ProcessingOrder: ${orderNumber}`);
   processing_orders[orderNumber] = true;
 }
 
 function releaseProcessingOrder(orderNumber) {
-  logger.log(`RELEASE ProcessingOrder: ${orderNumber}`, 'debug');
+  logger.debug(`RELEASE ProcessingOrder: ${orderNumber}`);
   delete processing_orders[orderNumber];
 }
 
 function checkProcessingOrder(orderNumber) {
   let result = !!processing_orders[orderNumber];
-  logger.log(`CHECK ProcessingOrder: ${orderNumber}, ${result}`, 'debug');
+  logger.debug(`CHECK ProcessingOrder: ${orderNumber}, ${result}`);
 
   return result;
 }
@@ -63,8 +63,8 @@ async function markSeizedOrders(order_numbers, date) {
     .getOwnPropertyNames(global_history)
     .filter(property => property.startsWith(date_key));
 
-  logger.log(`markSeizedOrders. mapped_order_numbers for ${date_for_log}: ${mapped_order_numbers.length}`, 'debug');
-  logger.log(`markSeizedOrders. properties for ${date_for_log}: ${properties.length}`, 'debug');
+  logger.debug(`markSeizedOrders. mapped_order_numbers for ${date_for_log}: ${mapped_order_numbers.length}`);
+  logger.debug(`markSeizedOrders. properties for ${date_for_log}: ${properties.length}`);
 
   let date_orders = properties
     .filter(property => !mapped_order_numbers.includes(property));
@@ -80,7 +80,9 @@ async function markSeizedOrders(order_numbers, date) {
       }
   });
 
-  logger.log(`markSeizedOrders. return result for ${date_for_log}, count: ${result.length}`, 'debug');
+  if (result.length > 0)
+    logger.warn(`markSeizedOrders. return result for ${date_for_log}, count: ${result.length}`);
+
   return result;
 }
 
@@ -108,7 +110,7 @@ function initOrdersHistory() {
       // .finally(() => Order.sequelize.close());
 
   return promise.then((orders = []) => {
-    logger.log(`initOrdersHistory, loaded: ${orders.length}`);
+    logger.warn(`initOrdersHistory, loaded: ${orders.length}`);
     orders.forEach(order => global_history[getHistoryKey(order)] = order);
     // printHistory(global_history);
     return orders;
@@ -138,11 +140,10 @@ function buildOrder(date_key, order_number, sent_messages) {
 function saveOrderToHistory(orderNumber, date, sent_messages) {
   date_key = getHistoryDateKey(date);
   history_key = getHistoryKeySimple(date_key, orderNumber);
-  // logger.log(`check before save history ${history_key} ${global_history[history_key] && global_history[history_key].orderNumber}`);
   if (!global_history[history_key]) {
     order = buildOrder(date_key, orderNumber, sent_messages);
     global_history[history_key] = order;
-    // logger.log(`save to history ${history_key}: ${order.orderNumber}`);
+    logger.debug(`save to history ${history_key}: ${order.orderNumber}`);
     order.save();
   }
 }
