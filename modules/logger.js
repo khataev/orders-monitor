@@ -34,6 +34,10 @@ function isLowerLevel(log_level) {
   return !isEqualOrHigherLevel(log_level);
 }
 
+function acronymizeLevel(level) {
+  return level.toUpperCase()[0];
+}
+
 let logger = function () {
   this.writeToFile = function (text, file_name) {
     fs.writeFile(file_name, text, function(err) {
@@ -59,12 +63,12 @@ let logger = function () {
 
   this.log = function (text, log_level = 'info') {
     if (isEqualOrHigherLevel(log_level))
-      console.log(DateTime.local().toISO(), `[${log_level}]`, text);
+      console.log(DateTime.local().toISO(), `[${acronymizeLevel(log_level)}]`, text);
 
     log_levels
       .forEach(level => {
         if (isEqualOrHigherLevelBase(level, log_level))
-          this.appendToFile(`[${log_level}] ${text}`, PROTOCOL_FILES[level]);
+          this.appendToFile(`[${acronymizeLevel(log_level)}] ${text}`, PROTOCOL_FILES[level]);
       });
   };
 
