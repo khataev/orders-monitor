@@ -1,5 +1,6 @@
 const Sequelize = require('sequelize');
 const Op = Sequelize.Op;
+const { DateTime } = require('luxon');
 
 const constants = require('./constants');
 const util = require('./util');
@@ -41,7 +42,13 @@ function printHistory(history) {
 }
 
 function unmarkSeizedOrders() {
-  const where = { seized: true };
+  const where = {
+    seized: true,
+    date: {
+      // HINT: seems like toJSDate() is redundant, but let it be here for now
+      [Op.gte]: DateTime.local().toJSDate()
+    }
+  };
   return Order
     .findAll({ where: where })
     .then(orders => {
