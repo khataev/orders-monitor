@@ -30,7 +30,7 @@ let util = function() {
 
   this.sanitizeText = function (text) {
     return text
-      .replace(/[\n\r]+/g, '')
+      // .replace(/[\n\r]+/g, '')
       .replace(/\s{2,10}/g, ' ');
   };
 
