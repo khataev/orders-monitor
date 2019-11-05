@@ -1,13 +1,13 @@
-const { DateTime } = require('luxon');
+const { DateTime, Settings } = require('luxon');
 const constants = require('./constants');
-// TODO: pass as a dependency
 const logger = require('./logger');
 
 let util = function() {
+  Settings.defaultZoneName = "Europe/Moscow";
 
   this.sleep = async function (ms) {
     return new Promise(resolve => {
-      logger.log(`sleep for ${ms} ms`);
+      logger.info(`sleep for ${ms} ms`);
       setTimeout(resolve, ms);
     });
   };
@@ -30,7 +30,7 @@ let util = function() {
 
   this.sanitizeText = function (text) {
     return text
-      .replace(/[\n\r]+/g, '')
+      // .replace(/[\n\r]+/g, '')
       .replace(/\s{2,10}/g, ' ');
   };
 
@@ -41,16 +41,33 @@ let util = function() {
 
   this.printDuration = function(attempt, start, end, custom_text) {
     request_duration = end.diff(start, ['seconds', 'milliseconds']);
-    logger.log(`request ${custom_text} attempt ${attempt} duration: ${request_duration.toFormat('s.SS')}`);
+    logger.warn(`request ${custom_text} attempt ${attempt} duration: ${request_duration.toFormat('s.SS')}`);
   };
 
   this.log_request_error = function (error, response) {
     // Print the error if one occurred
-    logger.log(`error: ${error}`);
+    logger.error(`error: ${error}`);
     // Print the response status code if a response was received
-    logger.log(`statusCode: ${response && response.statusCode}`);
-  }
+    logger.error(`statusCode: ${response && response.statusCode}`);
+  };
 
+  this.getNowDate = function() {
+    return DateTime.local();
+  };
+
+  this.getTomorrowDate = function() {
+    return DateTime.local().plus({ days: 1 });
+  };
+
+  this.wasOrderSentToTodayBot = function(order) {
+    let order_today = DateTime.fromJSDate(order.createdAt);
+    let order_date = DateTime.fromFormat(order.date, constants.ORDERS_HISTORY_DATE_FORMAT);
+
+    return order_date &&
+      order_date.year == order_today.year &&
+      order_date.month == order_today.month &&
+      order_date.day == order_today.day;
+  }
 };
 
 module.exports = new util();

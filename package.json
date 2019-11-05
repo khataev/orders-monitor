@@ -1,8 +1,11 @@
 {
   "name": "orders-monitor",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "description": "",
   "main": "index.js",
+  "engines": {
+    "node": "11.0.0"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node index.js",
@@ -10,6 +13,7 @@
     "history:purge": "node ./modules/scripts.js history:purge",
     "history:backup": "node ./modules/scripts.js history:backup",
     "history:restore": "node ./modules/scripts.js history:restore",
+    "telegram:restore_seized_messages": "node ./modules/scripts.js telegram:restore_seized_messages",
     "db:migrate": "node_modules/.bin/sequelize db:migrate --url $DATABASE_URL",
     "db:migrate:undo": "node_modules/.bin/sequelize db:migrate:undo  --url $DATABASE_URL"
   },

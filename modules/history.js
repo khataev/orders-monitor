@@ -1,8 +1,9 @@
-const { DateTime } = require('luxon');
 const Sequelize = require('sequelize');
 const Op = Sequelize.Op;
+const { DateTime } = require('luxon');
 
 const constants = require('./constants');
+const util = require('./util');
 const database = require('./../config/database');
 
 let logger;
@@ -14,30 +15,86 @@ let global_history = {};
 let processing_orders = {};
 
 function lockProcessingOrder(orderNumber) {
-  logger.log(`LOCK ProcessingOrder: ${orderNumber}`, 'debug');
+  logger.debug(`LOCK ProcessingOrder: ${orderNumber}`);
   processing_orders[orderNumber] = true;
 }
 
 function releaseProcessingOrder(orderNumber) {
-  logger.log(`RELEASE ProcessingOrder: ${orderNumber}`, 'debug');
+  logger.debug(`RELEASE ProcessingOrder: ${orderNumber}`);
   delete processing_orders[orderNumber];
 }
 
 function checkProcessingOrder(orderNumber) {
   let result = !!processing_orders[orderNumber];
-  logger.log(`CHECK ProcessingOrder: ${orderNumber}, ${result}`, 'debug');
+  logger.debug(`CHECK ProcessingOrder: ${orderNumber}, ${result}`);
 
   return result;
 }
 
 function printHistory(history) {
-  console.log('printing history');
-  for (var order_number_key in history) {
-    if (history.hasOwnProperty(order_number_key)){
-      order = history[order_number_key];
-      logger.log(`${order_number_key} - ${order.orderNumber}`);
+  logger.log('printing history');
+  for (let property in history) {
+    if (history.hasOwnProperty(property)){
+      let order = history[property];
+      logger.log(`${property} - ${order.orderNumber}`);
     }
   }
+}
+
+function unmarkSeizedOrders() {
+  const where = {
+    seized: true,
+    date: {
+      // HINT: seems like toJSDate() is redundant, but let it be here for now
+      [Op.gte]: DateTime.local().toJSDate()
+    }
+  };
+  return Order
+    .findAll({ where: where })
+    .then(orders => {
+      let order_numbers = orders.map(order => order.OrderNumber);
+      Order.update({ seized: false }, { where: where });
+
+      return orders;
+    });
+}
+
+async function markSeizedOrders(order_numbers, date) {
+  let result = [],
+    date_key = getHistoryDateKey(date),
+    date_for_log = date.toFormat(constants.DATE_FORMAT),
+    mapped_order_numbers = order_numbers.map(
+      orderNumber => getHistoryKeySimple(date_key, orderNumber)
+    );
+  let properties = Object
+    .getOwnPropertyNames(global_history)
+    .filter(property => property.startsWith(date_key));
+
+  logger.debug(`markSeizedOrders. mapped_order_numbers for ${date_for_log}: ${mapped_order_numbers.length}`);
+  logger.debug(`markSeizedOrders. properties for ${date_for_log}: ${properties.length}`);
+
+  let date_orders = properties
+    .filter(property => !mapped_order_numbers.includes(property));
+  await util.asyncForEach(
+    date_orders,
+    async (index, property) => {
+      let order = global_history[property];
+      if (!order.seized) {
+        order.seized = true;
+        await order.save();
+        result.push(order);
+        logger.log(`order seized: ${property}`);
+      }
+  });
+
+  if (result.length > 0)
+    logger.warn(`markSeizedOrders. return result for ${date_for_log}, count: ${result.length}`);
+
+  return result;
+}
+
+function getHistoryDateKey(date) {
+  return date.toFormat(constants.ORDERS_HISTORY_DATE_FORMAT);
 }
 
 function printGlobalHistory() {
@@ -60,13 +117,14 @@ function initOrdersHistory() {
       // .finally(() => Order.sequelize.close());
 
   return promise.then((orders = []) => {
-    logger.log(`initOrdersHistory, loaded: ${orders.length}`);
+    logger.warn(`initOrdersHistory, loaded: ${orders.length}`);
     orders.forEach(order => global_history[getHistoryKey(order)] = order);
     // printHistory(global_history);
+    return orders;
   });
 }
 
-function deleteOldHistory(cutoff_date = DateTime.local()) {
+function deleteOldHistory(cutoff_date = util.getNowDate()) {
   return Order.destroy({
     where: {
       date: {
@@ -76,36 +134,29 @@ function deleteOldHistory(cutoff_date = DateTime.local()) {
   });
 };
 
-function buildOrder(date_key, order_number) {
+function buildOrder(date_key, order_number, sent_messages) {
   return Order.build(
     {
       date: date_key,
-      orderNumber: order_number
+      orderNumber: order_number,
+      sent_messages: sent_messages
     }
   );
 }
 
-function createOrder(date_key, order_number) {
-  buildOrder(date_key, order_number)
-    .save()
-    .finally((order) => Order.sequelize.close());
-}
-
-function saveOrderToHistory(orderNumber, date) {
-  date_key = date.toFormat(constants.ORDERS_HISTORY_DATE_FORMAT);
+function saveOrderToHistory(orderNumber, date, sent_messages) {
+  date_key = getHistoryDateKey(date);
   history_key = getHistoryKeySimple(date_key, orderNumber);
-  // logger.log(`check before save history ${history_key} ${global_history[history_key] && global_history[history_key].orderNumber}`);
   if (!global_history[history_key]) {
-    order = buildOrder(date_key, orderNumber);
+    order = buildOrder(date_key, orderNumber, sent_messages);
     global_history[history_key] = order;
-    // logger.log(`save to history ${history_key}: ${order.orderNumber}`);
-    order
-      .save();
+    logger.debug(`save to history ${history_key}: ${order.orderNumber}`);
+    order.save();
   }
 }
 
 function dayHistoryIncludes(date, order_number) {
-  date_key = date.toFormat(constants.ORDERS_HISTORY_DATE_FORMAT);
+  date_key = getHistoryDateKey(date);
   result = !!global_history[getHistoryKeySimple(date_key, order_number)];
   // console.log('HISTORY SEARCH', getHistoryKeySimple(date_key, order_number), result);
   return result;
@@ -163,8 +214,6 @@ let history = function(settings, log) {
 
   this.dayHistoryIncludes = dayHistoryIncludes;
 
-  this.createOrder = createOrder;
-
   this.printGlobalHistory = printGlobalHistory;
 
   this.lockProcessingOrder = lockProcessingOrder;
@@ -172,6 +221,10 @@ let history = function(settings, log) {
   this.releaseProcessingOrder = releaseProcessingOrder;
 
   this.checkProcessingOrder = checkProcessingOrder;
+
+  this.markSeizedOrders = markSeizedOrders;
+
+  this.unmarkSeizedOrders = unmarkSeizedOrders;
 };
 
 module.exports = history;

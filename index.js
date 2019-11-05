@@ -1,7 +1,6 @@
 require('newrelic');
 
 const requestGlobal = require('request');
-const { DateTime } = require('luxon');
 const express = require('express');
 const bodyParser = require('body-parser');
 
@@ -16,7 +15,7 @@ const history = require('./modules/history');
 const packageInfo = require('./package.json');
 
 const request = requestGlobal.defaults({jar: true});
-const telegramApi = new telegram(settings, logger);
+const telegramApi = new telegram(settings, logger, true);
 const historyManager = new history(settings, logger);
 const parserApi = new parser(historyManager, request, settings, logger);
 
@@ -43,11 +42,11 @@ function handleSeizeButton(req, res, bot = 'today') {
     .then(jar => parserApi.checkSeizeResult(requestGlobal, order_number, jar))
     .then(orderSeized => {
       if (orderSeized) {
-        logger.log(`Заказ ${order_number} взят`);
+        logger.warn(`Заказ ${order_number} взят`);
         telegramApi.answerCallbackQuery(query_id, `Заказ ${order_number} взят`, bot);
       }
       else {
-        logger.log(`Заказ ${order_number} не взят, возможно, вас опередили`);
+        logger.warn(`Заказ ${order_number} не взят, возможно, вас опередили`);
         telegramApi
           .answerCallbackQuery(
             query_id,
@@ -57,7 +56,7 @@ function handleSeizeButton(req, res, bot = 'today') {
       }
     })
     .catch(error => {
-      logger.log(error);
+      logger.error(error);
       telegramApi.answerCallbackQuery(query_id, `Ошибка взятия заказа: ${error}`, bot);
     });
 }
@@ -67,22 +66,22 @@ function start_simple_server() {
     const http = require('http')
     let port = process.env.PORT || 80;
     const server = http.createServer((request, response) => {
-      logger.log(request.url);
+      logger.warn(request.url);
       response.end('Hello Node.js Server!');
     });
 
     server.listen(port, (err) => {
       if (err) {
-        return logger.log(`something bad happened: ${err}`);
+        return logger.error(`something bad happened: ${err}`);
       }
-      logger.log(`server is listening on ${port}`);
+      logger.warn(`server is listening on ${port}`);
     })
   }
 }
 
 function start_express_server() {
   if (settings.get('env') === 'production') {
-    logger.log('start_express_server');
+    logger.warn('start_express_server');
     let app = express(),
       today_token = settings.get('credentials.telegram_bot.today.api_token'),
       tomorrow_token = settings.get('credentials.telegram_bot.tomorrow.api_token');
@@ -119,11 +118,12 @@ function run() {
     let manager_accounts = settings.get(
       'credentials.personal_cabinet.master_accounts'
     );
-    logger.log(manager_accounts, 'debug');
+    logger.debug(manager_accounts);
+    logger.fatal(`started with '${logger.currentLogLevel()}' log level`);
 
     historyManager
       .initOrdersHistory()
-      .then(orders => { logger.log('INIT ORDERS HISTORY COMPLETE'); })
+      .then(orders => { logger.warn('INIT ORDERS HISTORY COMPLETE'); })
       .then(result => {
         // logger.log(settings.get('orders.statuses'));
         logIn(settings, startUpdatesPolling);
@@ -148,7 +148,6 @@ function logIn(settings, callback) {
     if (error) {
       util.log_request_error(error, response);
       return;
-      // TODO: shutdown function
     }
     callback(settings);
   });
@@ -160,8 +159,10 @@ function logInAs(settings, telegram_chat_id) {
     let manager = accounts[telegram_chat_id];
     let login = manager && manager['login'];
     let password = manager && manager['password'];
-    if (!(login && password))
+    if (!(login && password)) {
       reject(`Логин и пароль для доступа к ЛК от имени chat_id=${telegram_chat_id} не указаны`);
+      return;
+    }
 
     let form = {
       login: accounts[telegram_chat_id]['login'],
@@ -193,6 +194,7 @@ function seizeOrder(order_number, jar) {
       if (error) {
         util.log_request_error(error, response);
         reject(error);
+        return;
       }
       resolve(jar);
     });
@@ -201,14 +203,17 @@ function seizeOrder(order_number, jar) {
 
 // used when order is in accounting status (and should be sent to telegram)
 function positiveStatusCallback(order_row, date) {
-  sendOrderToTelegram(order_row, date);
-  historyManager.saveOrderToHistory(
-    parserApi.getOrderNumber(order_row),
-    date
-  );
-  historyManager.releaseProcessingOrder(
-    parserApi.getOrderNumber(order_row)
-  );
+  let orderNumber = parserApi.getOrderNumber(order_row);
+  sendOrderToTelegram(order_row, date)
+    .then((sent_messages) => {
+        historyManager.saveOrderToHistory(
+          orderNumber,
+          date,
+          sent_messages
+        );
+        historyManager.releaseProcessingOrder(orderNumber);
+      }
+    );
 }
 
 // for other cases, when we ignore this order
@@ -230,97 +235,98 @@ function getOrderUpdatesCallback(attempt, settings, orders, date) {
 }
 
 function getToday() {
-  let now = DateTime.local();
+  let date = util.getNowDate();
   today_attempt++;
-  parserApi.getOrdersUpdates(today_attempt, getOrderUpdatesCallback, now);
+  parserApi
+    .getOrdersUpdates(today_attempt, date)
+    .then((updates) => {
+      // process new orders
+      parserApi.lockProcessingOrderRows(updates.new_orders);
+      getOrderUpdatesCallback(today_attempt, settings, updates.new_orders, date);
+
+      return updates;
+    })
+    .then(updates => processSeizedOrders(today_attempt, updates, date))
+    .catch(error => logger.error(`getToday error: ${error}`));
 }
 
 function getTomorrow() {
-  let tomorrow = DateTime.local().plus({ days: 1 });
+  let date = util.getTomorrowDate();
   tomorrow_attempt++;
-  parserApi.getOrdersUpdates(tomorrow_attempt, getOrderUpdatesCallback, tomorrow);
+  parserApi
+    .getOrdersUpdates(tomorrow_attempt, date)
+    .then((updates) => {
+      parserApi.lockProcessingOrderRows(updates.new_orders);
+      getOrderUpdatesCallback(tomorrow_attempt, settings, updates.new_orders, date);
+
+      return updates;
+    })
+    .then(updates => processSeizedOrders(tomorrow_attempt, updates, date))
+    .catch(error => logger.error(`getTomorrow error: ${error}`));
 }
 
-async function startUpdatesPolling(settings) {
-  let update_interval = settings.get('orders.update_interval') * 1000;
-  let attempt = 0;
+// process seized orders
+function processSeizedOrders(attempt, updates, date) {
+  let day = util.isToday(date) ? 'TODAY' : 'TOMORROW';
+  let order_numbers = parserApi.getOrderNumbers(updates.current_orders);
 
-  setInterval(getToday, update_interval);
-  await util.sleep(update_interval/2);
-  setInterval(getTomorrow, update_interval);
+  logger.log(`${day} CURRENT (attempt ${attempt}): ${order_numbers}`);
+  logger.info(`${day} CURRENT (attempt ${attempt}): ${order_numbers.length}`);
+  historyManager.markSeizedOrders(order_numbers, date)
+    .then(async seized_orders => {
+      if (seized_orders.length > 0) {
+        let seized_order_numbers = seized_orders.map(order => order.orderNumber);
+        logger.warn(`${day} SEIZED (attempt ${attempt}): ${seized_order_numbers}`);
+
+        if (settings.get('features.seized_order_message_editing') === 'enabled') {
+          await util.asyncForEach(seized_orders, async (i, order) => {
+            let bot = util.wasOrderSentToTodayBot(order) ?
+              telegramApi.getTodayBot() :
+              telegramApi.getTomorrowBot();
+            await telegramApi.editMessagesInTelegramForBot(
+              order.sent_messages,
+              telegramApi.getEmptyReplyMarkupBotOptions(),
+              bot
+            );
+          });
+        }
+
+        if (seized_orders.length > 5) {
+          let text = `ATTENTION, MASS SEIZING! (attempt ${attempt})`;
+          logger.warn(text);
+
+          if (logger.isEqualOrHigherLevel('debug')) {
+            telegramApi.sendToTelegram(
+              text,
+              telegramApi.getEmptyReplyMarkupBotOptions(),
+              date
+            );
+          }
+        }
+      }
+    })
+    .catch(error => logger.error(error));
 }
 
-async function startUpdatesPollingOld(settings) {
+function startUpdatesPolling(settings) {
   let update_interval = settings.get('orders.update_interval') * 1000;
-  let attempt = 0;
-  while(true) {
-    attempt = attempt + 1;
-    let now = DateTime.local();
-    let tomorrow = DateTime.local().plus({ days: 1 });
-    let dt_string = now.toISO();
-    logger.log(`today: ${now}, tomorrow: ${tomorrow}`);
-    logger.log(`GETTING UPDATES, attempt ${attempt} at: ${dt_string}`);
-    // historyManager.printGlobalHistory();
-    parserApi.getOrdersUpdates(attempt, getOrderUpdatesCallback, now);
-    await util.sleep(update_interval);
+  let half_interval = update_interval/2;
 
-    parserApi.getOrdersUpdates(attempt, getOrderUpdatesCallback, tomorrow);
-    await util.sleep(update_interval);
-  }
+  setInterval(poll, update_interval, half_interval)
+}
+
+async function poll(update_interval) {
+  getToday();
+  await util.sleep(update_interval);
+  getTomorrow();
 }
 
 async function sendOrderToTelegram (order_row, date) {
-  let orderNumber = parserApi.getOrderNumber(order_row);
-  const replyMarkup = parserApi.getReplyMarkupBotApi(orderNumber);
-  let text = parserApi.renderOrderData(order_row);
+  const orderNumber = parserApi.getOrderNumber(order_row);
+  const replyMarkup = telegramApi.getReplyMarkupBotApiOptions(orderNumber);
+  const text = parserApi.renderOrderData(order_row);
 
-  await telegramApi.sendToTelegram(settings, text, replyMarkup, date);
-}
-
-function test_run() {
-  if (settings) {
-    // logInAs(settings, '1917042')
-    // logInAs(settings, '253850760')
-    //   .then(jar => parserApi.checkSeizeResult(requestGlobal, '4918996', jar))
-    //   .then(orderSeized => {
-    //     if (orderSeized) {
-    //       console.log('YES');
-    //     }
-    //     else {
-    //       console.log('NO');
-    //     }
-    //   })
-    //   .catch(error => {
-    //     console.log('ERROR');
-    //     logger.log(error);
-    //   });
-
-    //   .then(jar => seizeOrder('http://lk.us.to/eng.php', jar))
-    //   .then(body => logger.log(body))
-    //   .catch(error => logger.log(error));
-
-    // logIn(settings, (settings) => {parserApi.getOrderStatus(47703698);});
-
-    // const Sequelize = require('sequelize');
-    // const database = require('./config/database');
-    // sequelize = new Sequelize(database[settings.get('env')]);
-    // Order = sequelize.import("./models/order");
-    //
-    // historyManager
-    //   .initOrdersHistory()
-    //   .then(orders => { console.log('INIT COMPLETE'); })
-    //   .then(result => {
-    //
-    //
-    //     result = historyManager.dayHistoryIncludes('47653830');
-    //     console.log('result', result)
-    //     console.log('exit');
-    //   });
-
-    // console.log(DateTime.local().toJSDate());
-    key = DateTime.local().toFormat(constants.ORDERS_HISTORY_DATE_FORMAT);
-  }
+  return telegramApi.sendToTelegram(text, replyMarkup, date);
 }
 
 run();
-// test_run();

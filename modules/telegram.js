@@ -1,4 +1,3 @@
-const { DateTime } = require('luxon');
 const request = require('request');
 const util = require('./util');
 
@@ -18,34 +17,44 @@ function answerCallbackQueryTomorrow(query_id, text) {
   bot_tomorrow.answerCallbackQuery(query_id, { text: text, show_alert: true } );
 };
 
-let telegram = function(settings, logger) {
+let telegram = function(settings, logger, set_webhooks = false) {
   let today_token = settings.get('credentials.telegram_bot.today.api_token'),
     tomorrow_token = settings.get('credentials.telegram_bot.tomorrow.api_token'),
     message_prepender = settings.get('debug.message_prepender'),
     application_name = settings.get('application_name'),
-    is_production_env = settings.get('env') == 'production';
-  // TODO: helper for production env
+    is_production_env = settings.isProductionEnv();
 
   bot_tomorrow = new Bot(tomorrow_token, { polling: false });
+  bot_tomorrow.id = 'bot_tomorrow';
   bot_today = new Bot(today_token, { polling: false });
+  bot_today.id = 'bot_today';
   sent_message_log_length = settings.get('debug.sent_message_log_length');
 
-  if (application_name && is_production_env) {
-    bot_today.setWebHook(`https://${application_name}.herokuapp.com/${today_token}`, {
-      // certificate: `certs/${env}/server.crt`, // Path to your crt.pem
-    });
-
-    bot_tomorrow.setWebHook(`https://${application_name}.herokuapp.com/${tomorrow_token}`, {
-      // certificate: `certs/${env}/server.crt`, // Path to your crt.pem
-    });
-    logger.log('telegram webhooks initialization passed');
+  if (application_name && is_production_env && set_webhooks) {
+    // TODO: move webhooks initialization to explicit routine to be run consequently
+    // before login
+    const parent = this;
+    logger.warn('Setting TODAY bot webhook');
+    bot_today
+      .setWebHook(`https://${application_name}.herokuapp.com/${today_token}`)
+      .then(() => logger.warn('Setting TODAY bot webhook - DONE'))
+      .then(() => {
+        logger.warn('Setting TOMORROW bot webhook');
+        return util.sleep(parent.getDelayBetweenRequests());
+      })
+      .then(() => {
+        return bot_tomorrow
+          .setWebHook(`https://${application_name}.herokuapp.com/${tomorrow_token}`);
+      })
+      .then(() => logger.warn('Setting TOMORROW bot webhook - DONE'))
+      .then(() => logger.warn('Telegram webhooks initialization passed'))
+      .catch(error => logger.error(error.message));
   }
-  else {
-    logger.log('Параметр application_name не установлен');
-  }
+  if (!application_name)
+    logger.error('Параметр application_name не установлен');
 
   this.mapGetUpdatesElement = function (elem) {
-    console.log('mapGetUpdatesElement', elem);
+    logger.debug('mapGetUpdatesElement', elem);
     return elem['message']['chat']['id'];
   };
 
@@ -59,7 +68,7 @@ let telegram = function(settings, logger) {
   };
 
   // HINT: do not use to get subscribers, get them from settings instead
-  this.getBotSubscribers = function (date = DateTime.local()) {
+  this.getBotSubscribers = function (date = util.getNowDate()) {
     let api_token = this.getApiToken(settings, date);
     let url = `https://api.telegram.org/bot${api_token}/getUpdates`;
 
@@ -85,88 +94,111 @@ let telegram = function(settings, logger) {
   };
 
   this.getChatIds = function (){
-    return settings.get('credentials.telegram_bot.chat_ids');
-  };
-
-  this.sendMessageToSubscriberMine = async function (settings, chat_id, text, reply_markup_object, date) {
-    let sanitized_chat_id = chat_id.trim();
-    if (!sanitized_chat_id) {
-      logger.log('chat_id is empty');
-    }
-
-    let delay = this.getDelayBetweenRequests();
-    let api_token = this.getApiToken(settings, date);
-    let sanitized_text = util.sanitizeText(text);
-    let encoded_text = encodeURI(sanitized_text);
-    let encoded_reply_markup = encodeURI(JSON.stringify(reply_markup_object));
-    // TODO parameters as hash ??
-    let url = `https://api.telegram.org/bot${api_token}/sendMessage?chat_id=${chat_id}&text=${encoded_text}&reply_markup=${encoded_reply_markup}`;
-    // let url = `https://api.telegram.org/bot${api_token}/sendMessage?chat_id=${chat_id}&text=${encoded_text}`;
-    logger.log(`sendMessage url: ${url}`);
-    logger.log(`sendMessageToSubscriber. chat_id: ${chat_id}, text: ${sanitized_text}`);
-    request.post({
-      url: url
-    }, function(error, response, body) {
-      logger.log(`sendMessageToSubscriber. SEND! chat_id: ${chat_id}, text: ${sanitized_text}`);
-      if (error) {
-        util.log_request_error(error, response);
-      }
-    });
-
-    await util.sleep(delay);
+    return settings
+      .get('credentials.telegram_bot.chat_ids')
+      .map(chat_id => chat_id.toString().trim());
   };
 
   // TODO: rollback save to history if send failed
-  this.sendMessageToSubscriber = async function (settings, chat_id, text, reply_markup_object, date) {
+  this.sendMessageToSubscriber = function (chat_id, text, reply_markup_options, date) {
     let sanitized_chat_id = parseInt(chat_id, 10);
-    // TODO: need more sofisticated check
     if (isNaN(sanitized_chat_id)) {
-      logger.log('chat_id is empty');
+      logger.error('chat_id is empty');
     }
     let sanitized_text = util.sanitizeText(`${message_prepender}${text}`.trim());
-    let delay = this.getDelayBetweenRequests();
+    // let delay = this.getDelayBetweenRequests();
     // let url = `https://api.telegram.org/bot${api_token}/sendMessage?chat_id=${chat_id}&text=${encoded_text}`;
-    logger.log(`sendMessageToSubscriber. chat_id: ${sanitized_chat_id}, text: ${sanitized_text}`);
+    logger.info(`sendMessageToSubscriber. chat_id: ${sanitized_chat_id}, text: ${sanitized_text}`);
 
     let bot = util.isToday(date) ? bot_today : bot_tomorrow;
-    bot.sendMessage(sanitized_chat_id, sanitized_text, reply_markup_object).then(function () {
-      // TODO: move to settings
-      logger.log(
-        `sendMessageToSubscriber. SEND! chat_id: ${sanitized_chat_id}, text: ${cropSentMessage(sanitized_text)}`
-      );
+    return bot
+      .sendMessage(sanitized_chat_id, sanitized_text, reply_markup_options)
+      .then(message => {
+        logger.warn(
+          `sendMessageToSubscriber. SEND! chat_id: ${sanitized_chat_id}, text: ${cropSentMessage(sanitized_text)}`
+        );
+        logger.debug(message);
+        return message;
     });
-
-    await util.sleep(delay);
   };
 
-  this.sendToTelegram = async function (settings, text, replyMarkup, date = DateTime.local()) {
+  this.editSubscriberMessageForBot = function (chat_id, message_id, reply_markup, bot) {
+    let sanitized_chat_id = parseInt(chat_id, 10);
+    if (isNaN(sanitized_chat_id)) {
+      logger.error('chat_id is empty');
+    }
+
+    let options = {
+      chat_id: chat_id,
+      message_id: message_id
+    };
+    logger.warn(`editSubscriberMessageForBot. bot_id: ${bot.id}, chat_id: ${sanitized_chat_id}, message_id: ${message_id}`);
+    return bot.editMessageReplyMarkup(reply_markup, options);
+  };
+
+  this.editSubscriberMessage = function (chat_id, message_id, reply_markup_options, date) {
+    const bot = util.isToday(date) ? bot_today : bot_tomorrow;
+
+    return this.editSubscriberMessageForBot(chat_id, message_id, reply_markup_options, bot);
+  };
+
+  this.sendToTelegram = async function (text, reply_markup_options, date = util.getNowDate()) {
     let chat_ids = this.getChatIds();
+    let sent_messages = {};
     if (chat_ids && chat_ids.length > 0) {
-      logger.log(`sendToTelegram. destination chat_ids: ${chat_ids}`);
+      logger.warn(`sendToTelegram. destination chat_ids: ${chat_ids}`);
       // TODO: how to avoid this context hoisting?
       let parent = this;
       await util.asyncForEach(chat_ids, async function (i, chat_id) {
-        await parent.sendMessageToSubscriber(settings, chat_id, text, replyMarkup, date);
+        await parent
+          .sendMessageToSubscriber(chat_id, text, reply_markup_options, date)
+          .then(message => sent_messages[chat_id] = message.message_id);
+        await util.sleep(parent.getDelayBetweenRequests());
       });
     }
-    // TODO: use as promise example
-    // else {
-    //   this.getBotSubscribers(date)
-    //     .then(subscribers => {
-    //       if (subscribers == undefined || subscribers.length == 0) {
-    //         logger.log('no subscribers, message would not be sent');
-    //       }
-    //       else {
-    //         subscribers.forEach(function (chat_id) {
-    //           logger.log(`sendToTelegram. Subscribers: ${subscribers}`);
-    //           this.sendMessageToSubscriber(settings, chat_id, text, replyMarkup, date);
-    //         });
-    //       }
-    //     });
-    // }
+    return sent_messages;
   };
 
-  this.getApiToken = function (settings, date = DateTime.local()) {
+  // TODO: rename 'Telegram' functions
+  this.editMessagesInTelegramForBot = async function (sent_messages, reply_markup, bot) {
+    const chat_ids = Object.getOwnPropertyNames(sent_messages);
+    if (chat_ids && chat_ids.length > 0) {
+      logger.info(`editMessagesInTelegramForBot. destination chat_ids: ${chat_ids}`);
+      let parent = this;
+      await util.asyncForEach(chat_ids, async (i, chat_id) => {
+          let message_id = sent_messages[chat_id];
+          parent
+            .editSubscriberMessageForBot(chat_id, message_id, reply_markup, bot)
+            .catch(error => {
+              logger
+                .warn(
+                  `editMessagesInTelegramForBot. chat_id: ${chat_id}, message_id: ${message_id}, ERROR: ${error.message}`
+                );
+            });
+          await util.sleep(parent.getDelayBetweenRequests());
+      });
+    }
+  };
+
+  this.editMessagesInTelegram = function (sent_messages, reply_markup, date = util.getNowDate()) {
+    const bot = util.isToday(date) ? bot_today : bot_tomorrow;
+
+    return this.editMessagesInTelegramForBot(sent_messages, reply_markup, bot);
+  };
+
+  this.restoreSeizedMessages = async function(orders) {
+    const parent = this;
+    await util.asyncForEach(orders, async (i, order) => {
+      let bot = util.wasOrderSentToTodayBot(order) ? bot_today : bot_tomorrow;
+      await parent.editMessagesInTelegramForBot(
+        order.sent_messages,
+        parent.getReplyMarkup(order.orderNumber),
+        bot
+      );
+    });
+  };
+
+  this.getApiToken = function (settings, date = util.getNowDate()) {
     return util.isToday(date) ?
       settings.get('credentials.telegram_bot.today.api_token') :
       settings.get('credentials.telegram_bot.tomorrow.api_token');
@@ -174,6 +206,32 @@ let telegram = function(settings, logger) {
 
   this.getDelayBetweenRequests = function (){
     return settings.get('credentials.telegram_bot.delay_between_requests');
+  };
+
+  this.getReplyMarkupBotApiOptions = function (orderNumber) {
+    return {
+      "reply_markup": this.getReplyMarkup(orderNumber)
+    };
+  };
+
+  this.getEmptyReplyMarkupBotOptions = function () {
+    return {};
+  };
+
+  this.getReplyMarkup = function (orderNumber) {
+    return {
+        "inline_keyboard": [
+          [{ "text": 'Забрать заказ', "callback_data": `seizeOrder_${orderNumber}` }]
+        ]
+      };
+  };
+
+  this.getTodayBot = function() {
+    return bot_today;
+  };
+
+  this.getTomorrowBot = function() {
+    return bot_tomorrow;
   };
 };
 

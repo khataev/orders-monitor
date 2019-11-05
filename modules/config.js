@@ -167,13 +167,21 @@ const config = convict({
     log_level: {
       doc: "Log level",
       format: function check(val) {
-        regexp = /debug|info/i;
+        regexp = /debug|info|warn|error|fatal/i;
         if(!regexp.test(val)) {
           throw new Error(`Unpermitted log level: ${val}`);
         }
       },
       default: 'info',
       env: "DEBUG_LOG_LEVEL"
+    }
+  },
+  features: {
+    seized_order_message_editing: {
+      doc: "Turn on/off editing message in telegram for seized order",
+      format: ["enabled", "disabled"],
+      default: "enabled",
+      env: "FEATURES_SEIZED_ORDER_MESSAGE_EDITING"
     }
   }
 });
@@ -184,5 +192,14 @@ config.loadFile('./config/' + env + '.json');
 
 // Perform validation
 config.validate({allowed: 'strict'});
+
+// custom functions
+config.isProductionEnv = function() {
+  return this.get('env') === 'production';
+};
+
+config.isDevelopmentEnv = function() {
+  return this.get('env') === 'development';
+};
 
 module.exports = config;
