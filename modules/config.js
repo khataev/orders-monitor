@@ -1,4 +1,4 @@
-const convict = require('convict');
+const convict = require("convict");
 
 // Define a schema
 const config = convict({
@@ -57,7 +57,7 @@ const config = convict({
       doc: "Page with orders",
       format: "url",
       default: "http://example.com",
-      env: "ORDERS_URL",
+      env: "ORDERS_URL"
     },
     update_interval: {
       doc: "Orders update interval (in seconds)",
@@ -86,7 +86,8 @@ const config = convict({
       env: "ORDERS_DETAILS_URL"
     },
     statuses: {
-      doc: "List of order statuses to be sent to bot's channel. Case is ignored",
+      doc:
+        "List of order statuses to be sent to bot's channel. Case is ignored",
       format: Array,
       default: [],
       env: "ORDERS_STATUSES"
@@ -99,18 +100,18 @@ const config = convict({
         format: "url",
         // HINT: remember, that it should end with login.php ;)
         default: "http://example.com",
-        env: "CREDENTIALS_PERSONAL_CABINET_LOGIN_URL",
+        env: "CREDENTIALS_PERSONAL_CABINET_LOGIN_URL"
       },
       login: {
         doc: "Login",
         format: String,
-        default: '',
+        default: "",
         env: "CREDENTIALS_PERSONAL_CABINET_LOGIN"
       },
       password: {
         doc: "Password",
         format: String,
-        default: '',
+        default: "",
         env: "CREDENTIALS_PERSONAL_CABINET_PASSWORD"
       },
       master_accounts: {
@@ -168,11 +169,11 @@ const config = convict({
       doc: "Log level",
       format: function check(val) {
         regexp = /debug|info|warn|error|fatal/i;
-        if(!regexp.test(val)) {
+        if (!regexp.test(val)) {
           throw new Error(`Unpermitted log level: ${val}`);
         }
       },
-      default: 'info',
+      default: "info",
       env: "DEBUG_LOG_LEVEL"
     }
   },
@@ -182,24 +183,30 @@ const config = convict({
       format: ["enabled", "disabled"],
       default: "enabled",
       env: "FEATURES_SEIZED_ORDER_MESSAGE_EDITING"
+    },
+    intermediate_interval: {
+      doc: "Interavl between today/tomorrow requests (off/on)",
+      format: ["enabled", "disabled"],
+      default: "enabled",
+      env: "FEATURES_INTERMEDIATE_INTERVAL"
     }
   }
 });
 
 // Load environment dependent configuration
-let env = config.get('env');
-config.loadFile('./config/' + env + '.json');
+let env = config.get("env");
+config.loadFile("./config/" + env + ".json");
 
 // Perform validation
-config.validate({allowed: 'strict'});
+config.validate({ allowed: "strict" });
 
 // custom functions
 config.isProductionEnv = function() {
-  return this.get('env') === 'production';
+  return this.get("env") === "production";
 };
 
 config.isDevelopmentEnv = function() {
-  return this.get('env') === 'development';
+  return this.get("env") === "development";
 };
 
 module.exports = config;
