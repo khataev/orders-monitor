@@ -1,3 +1,4 @@
+const querystring = require('querystring');
 const $ = require('cheerio');
 const util = require('./util');
 const constants = require('./constants');
@@ -6,6 +7,18 @@ let historyManager, orders_url, hour_from, hour_to;
 
 function getColumnText(order_row, column_number) {
   return $(order_row).children('td').eq(column_number).text();
+}
+
+function getColumnHref(order_row, column_number) {
+  return $(order_row).children('td').eq(column_number).find('a').attr('href');
+}
+
+function getOrderEid(order_row) {
+  let href = getColumnHref(order_row, 1);
+  let qs = href.split('?')[1];
+  let obj = querystring.parse(qs);
+
+  return obj['eid'];
 }
 
 function getOrderNumber(order_row) {
@@ -89,10 +102,11 @@ function logAbsentOrdersBody(logger, attempt, body) {
 }
 
 function getOrderStatus(settings, logger, request, attempt, order, date, positive_callback, negative_callback) {
+  let orderEid = getOrderEid(order);
   let orderNumber = getOrderNumber(order);
-  data = {
+  let data = {
     url: settings.get('orders.details_url'),
-    qs: { 'id': orderNumber }
+    qs: { 'eid': orderEid }
   };
   let start_time = util.getNowDate();
   request.get(data, function (error, response, body) {
