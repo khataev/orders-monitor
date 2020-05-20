@@ -12,15 +12,15 @@ function getOrderNumber(order_row) {
   return getColumnText(order_row, 1);
 }
 
-function filterOnlyOrders (i, elem) {
+function filterOnlyOrders(i, elem) {
   return i > 0;
 }
 
-function filterLocked (i, elem) {
+function filterLocked(i, elem) {
   return !historyManager.checkProcessingOrder(getOrderNumber(elem));
 }
 
-function filterByTime (i, elem) {
+function filterByTime(i, elem) {
   if (!(hour_from && hour_to))
     return true;
 
@@ -33,7 +33,7 @@ function filterByTime (i, elem) {
   }
 }
 
-function filterByStatus (settings, logger, request, attempt, orders, date, positive_callback, negative_callback) {
+function filterByStatus(settings, logger, request, attempt, orders, date, positive_callback, negative_callback) {
   $(orders).each((i, order) => {
     // console.log('GET ORDER STATUS', getOrderNumber(elem));
     getOrderStatus(
@@ -49,7 +49,7 @@ function filterByStatus (settings, logger, request, attempt, orders, date, posit
   });
 }
 
-function filterByHistory (i, elem, date) {
+function filterByHistory(i, elem, date) {
   let order_number = getOrderNumber(elem);
 
   return !historyManager.dayHistoryIncludes(date, order_number);
@@ -63,7 +63,7 @@ function filterNewOrders(i, elem, date) {
   return filterLocked(i, elem) && filterByHistory(i, elem, date);
 }
 
-function seizeOrderUrl (orderNumber) {
+function seizeOrderUrl(orderNumber) {
   return `${orders_url.trim()}?id=${orderNumber}`;
 }
 
@@ -88,7 +88,7 @@ function logAbsentOrdersBody(logger, attempt, body) {
   logger.debug(body);
 }
 
-function getOrderStatus (settings, logger, request, attempt, order, date, positive_callback, negative_callback) {
+function getOrderStatus(settings, logger, request, attempt, order, date, positive_callback, negative_callback) {
   let orderNumber = getOrderNumber(order);
   data = {
     url: settings.get('orders.details_url'),
@@ -107,11 +107,19 @@ function getOrderStatus (settings, logger, request, attempt, order, date, positi
       `order (${orderNumber}) status query`
     );
     let $$ = $.load(body);
+
+    logger.debug('------ Order details BODY STARTS ---------');
+    logger.debug(body);
+    logger.debug('------ Order details BODY ENDS ---------');
+
     let selector = '#body > table:nth-child(12) > tbody > tr > td > h3';
     let $details_header = $$(selector);
     let header_text = $details_header.text().toLowerCase();
     let statuses = settings.get('orders.statuses');
     let result = statuses.some(status => header_text.includes(status.toLowerCase()));
+
+    logger.debug(`statuses: ${statuses}`);
+    logger.debug(`order status text: ${header_text}`);
 
     if (result) {
       logger.log(`POSITIVE STATUS: ${orderNumber}, ${result}, ${header_text}`);
@@ -177,7 +185,7 @@ let parser = function (history_manager, request, settings, logger) {
   this.checkSeizeResult = function (request, order_number, jar) {
     return new Promise((resolve, reject) => {
       logger.warn(`checkSeizeResult, order_number: ${order_number}`);
-      const req = request.defaults({jar: jar});
+      const req = request.defaults({ jar: jar });
       // HINT: use the same base url as for order details
       let details_url = settings.get('orders.details_url');
       let start_time = util.getNowDate();
@@ -210,11 +218,11 @@ let parser = function (history_manager, request, settings, logger) {
     return getColumnText(order_row, column_number);
   };
 
-  this.getOrderNumber = function(order_row) {
+  this.getOrderNumber = function (order_row) {
     return getOrderNumber(order_row);
   };
 
-  this.seizeOrderUrl = function(order_number) {
+  this.seizeOrderUrl = function (order_number) {
     return seizeOrderUrl(order_number);
   };
 
@@ -227,7 +235,7 @@ let parser = function (history_manager, request, settings, logger) {
       metro = this.getColumnText($order, 3),
       problem = this.getColumnText($order, 5),
       address = this.getColumnText($order, 6),
-      client = this.getColumnText($order, 7).replace(emptyAgeRegexp,'');
+      client = this.getColumnText($order, 7).replace(emptyAgeRegexp, '');
 
     return `${time}; ${problem}; м.${metro}; ${address}; ${client}; ${orderNumber}`;
   };
@@ -235,7 +243,7 @@ let parser = function (history_manager, request, settings, logger) {
   this.getReplyMarkup = function (orderNumber) {
     return {
       inline_keyboard: [
-        [{ text: 'Забрать заказ', url: seizeOrderUrl(orderNumber)}]
+        [{ text: 'Забрать заказ', url: seizeOrderUrl(orderNumber) }]
       ]
     };
   };
