@@ -353,6 +353,10 @@ async function poll(intermediate_interval) {
 async function sendOrderToTelegram(order_row, date) {
   const orderEid = parserApi.getOrderEid(order_row);
   const replyMarkup = telegramApi.getReplyMarkupBotApiOptions(orderEid);
+
+  logger.info(`sendOrderToTelegram. orderEid: ${orderEid}`)
+  logger.info(`sendOrderToTelegram. replyMarkup: ${replyMarkup}`)
+
   const text = parserApi.renderOrderData(order_row);
 
   return telegramApi.sendToTelegram(text, replyMarkup, date);
