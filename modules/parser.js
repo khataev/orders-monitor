@@ -76,8 +76,8 @@ function filterNewOrders(i, elem, date) {
   return filterLocked(i, elem) && filterByHistory(i, elem, date);
 }
 
-function seizeOrderUrl(orderNumber) {
-  return `${orders_url.trim()}?id=${orderNumber}`;
+function seizeOrderUrl(orderEid) {
+  return `${orders_url.trim()}?eid=${orderEid}`;
 }
 
 function lockProcessingOrderRows(orders_element) {
@@ -236,6 +236,10 @@ let parser = function (history_manager, request, settings, logger) {
     return getOrderNumber(order_row);
   };
 
+  this.getOrderEid = function (order_row) {
+    return getOrderEid(order_row);
+  };
+
   this.seizeOrderUrl = function (order_number) {
     return seizeOrderUrl(order_number);
   };
@@ -254,10 +258,10 @@ let parser = function (history_manager, request, settings, logger) {
     return `${time}; ${problem}; м.${metro}; ${address}; ${client}; ${orderNumber}`;
   };
 
-  this.getReplyMarkup = function (orderNumber) {
+  this.getReplyMarkup = function (orderEid) {
     return {
       inline_keyboard: [
-        [{ text: 'Забрать заказ', url: seizeOrderUrl(orderNumber) }]
+        [{ text: 'Забрать заказ', url: seizeOrderUrl(orderEid) }]
       ]
     };
   };

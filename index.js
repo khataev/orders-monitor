@@ -100,19 +100,19 @@ function start_express_server() {
     app.use(bodyParser.urlencoded({ extended: false }));
     app.use(bodyParser.json());
 
-    app.get("/", function(req, res) {
+    app.get("/", function (req, res) {
       res.json({ version: packageInfo.version });
     });
 
-    app.post(`/${today_token}`, function(req, res) {
+    app.post(`/${today_token}`, function (req, res) {
       handleSeizeButton(req, res);
     });
 
-    app.post(`/${tomorrow_token}`, function(req, res) {
+    app.post(`/${tomorrow_token}`, function (req, res) {
       handleSeizeButton(req, res, "tomorrow");
     });
 
-    let server = app.listen(process.env.PORT, function() {
+    let server = app.listen(process.env.PORT, function () {
       let host = server.address().address;
       let port = server.address().port;
 
@@ -156,7 +156,7 @@ function logIn(settings, callback) {
     form: form
   };
 
-  request.post(data, function(error, response, body) {
+  request.post(data, function (error, response, body) {
     if (error) {
       util.log_request_error(error, response);
       return;
@@ -189,7 +189,7 @@ function logInAs(settings, telegram_chat_id) {
     };
     const jar = requestGlobal.jar();
     const request = requestGlobal.defaults({ jar: jar });
-    request.post(data, function(error, response, body) {
+    request.post(data, function (error, response, body) {
       if (error) {
         util.log_request_error(error, response);
         reject(error);
@@ -204,7 +204,7 @@ function seizeOrder(order_number, jar) {
     const seize_url = parserApi.seizeOrderUrl(order_number);
     const request = requestGlobal.defaults({ jar: jar });
     // const request = requestGlobal.defaults({});
-    request.get(seize_url, function(error, response, body) {
+    request.get(seize_url, function (error, response, body) {
       if (error) {
         util.log_request_error(error, response);
         reject(error);
@@ -351,8 +351,8 @@ async function poll(intermediate_interval) {
 }
 
 async function sendOrderToTelegram(order_row, date) {
-  const orderNumber = parserApi.getOrderNumber(order_row);
-  const replyMarkup = telegramApi.getReplyMarkupBotApiOptions(orderNumber);
+  const orderEid = parserApi.getOrderEid(order_row);
+  const replyMarkup = telegramApi.getReplyMarkupBotApiOptions(orderEid);
   const text = parserApi.renderOrderData(order_row);
 
   return telegramApi.sendToTelegram(text, replyMarkup, date);
