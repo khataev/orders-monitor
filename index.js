@@ -199,18 +199,17 @@ function logInAs(settings, telegram_chat_id) {
   });
 }
 
-function seizeOrder(order_number, jar) {
-  return new Promise((resolve, reject) => {
-    const seize_url = parserApi.seizeOrderUrl(order_number);
+function seizeOrder(orderNumber, jar) {
+  return historyManager.findOrder(orderNumber).then(order => {
+    const seize_url = parserApi.seizeOrderUrl(order.eid);
     const request = requestGlobal.defaults({ jar: jar });
     // const request = requestGlobal.defaults({});
     request.get(seize_url, function (error, response, body) {
       if (error) {
         util.log_request_error(error, response);
-        reject(error);
-        return;
+        throw new Error(error);
       }
-      resolve(jar);
+      return jar;
     });
   });
 }
@@ -218,8 +217,9 @@ function seizeOrder(order_number, jar) {
 // used when order is in accounting status (and should be sent to telegram)
 function positiveStatusCallback(order_row, date) {
   let orderNumber = parserApi.getOrderNumber(order_row);
+  let eid = parserApi.getOrderEid(order_row);
   sendOrderToTelegram(order_row, date).then(sent_messages => {
-    historyManager.saveOrderToHistory(orderNumber, date, sent_messages);
+    historyManager.saveOrderToHistory(orderNumber, eid, date, sent_messages);
     historyManager.releaseProcessingOrder(orderNumber);
   });
 }
@@ -351,14 +351,9 @@ async function poll(intermediate_interval) {
 }
 
 async function sendOrderToTelegram(order_row, date) {
-  const orderEid = parserApi.getOrderEid(order_row);
-  const replyMarkup = telegramApi.getReplyMarkupBotApiOptions(orderEid);
-
-  logger.info(`sendOrderToTelegram. orderEid: ${orderEid}`)
-  logger.info(`sendOrderToTelegram. replyMarkup: ${replyMarkup}`)
-
+  const orderNumber = parserApi.getOrderNumber(order_row);
+  const replyMarkup = telegramApi.getReplyMarkupBotApiOptions(orderNumber);
   const text = parserApi.renderOrderData(order_row);
-
   return telegramApi.sendToTelegram(text, replyMarkup, date);
 }
 

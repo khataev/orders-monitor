@@ -219,10 +219,11 @@ let parser = function (history_manager, request, settings, logger) {
           `checkSeizeResult(${order_number})`
         );
         let $$ = $.load(body);
+        // Таблица Ваши активные заказы
         let selector = '#body > table:nth-child(12) > tbody > tr > td > table.active-orders > tbody';
         let $orders_tbody = $$(selector);
         let $orders = $orders_tbody.children('tr');
-        $orders = $orders.filter((i, elem) => { return getColumnText(elem, 0) == order_number; });
+        $orders = $orders.filter((_i, elem) => { return getColumnText(elem, 0) == order_number; });
         resolve($orders.length > 0);
       });
     });
@@ -240,8 +241,8 @@ let parser = function (history_manager, request, settings, logger) {
     return getOrderEid(order_row);
   };
 
-  this.seizeOrderUrl = function (order_number) {
-    return seizeOrderUrl(order_number);
+  this.seizeOrderUrl = function (orderEid) {
+    return seizeOrderUrl(orderEid);
   };
 
   this.renderOrderData = function (order) {
@@ -256,14 +257,6 @@ let parser = function (history_manager, request, settings, logger) {
       client = this.getColumnText($order, 7).replace(emptyAgeRegexp, '');
 
     return `${time}; ${problem}; м.${metro}; ${address}; ${client}; ${orderNumber}`;
-  };
-
-  this.getReplyMarkup = function (orderEid) {
-    return {
-      inline_keyboard: [
-        [{ text: 'Забрать заказ', url: seizeOrderUrl(orderEid) }]
-      ]
-    };
   };
 
   this.getOrderNumbers = getOrderNumbers;
