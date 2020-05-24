@@ -41,6 +41,10 @@ function handleSeizeButton(req, res, bot = "today") {
 
   logInAs(settings, chat_id)
     .then(jar => seizeOrder(order_number, jar))
+    .then(async jar => {
+      await util.sleep(2000);
+      return jar;
+    })
     .then(jar => parserApi.checkSeizeResult(requestGlobal, order_number, jar))
     .then(orderSeized => {
       if (orderSeized) {
