@@ -213,6 +213,7 @@ function seizeOrder(orderNumber, jar) {
         util.log_request_error(error, response);
         throw new Error(error);
       }
+      logger.info(`seizeOrder ${order.orderNumber}`)
       return jar;
     });
   });
