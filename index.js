@@ -43,6 +43,7 @@ function handleSeizeButton(req, res, bot = "today") {
     .then(jar => seizeOrder(order_number, jar))
     .then(async jar => {
       await util.sleep(2000);
+      console.log('sleep', 'jar', jar);
       return jar;
     })
     .then(jar => parserApi.checkSeizeResult(requestGlobal, order_number, jar))
@@ -179,7 +180,6 @@ function logInAs(settings, telegram_chat_id) {
       reject(
         `Логин и пароль для доступа к ЛК от имени chat_id=${telegram_chat_id} не указаны`
       );
-      return;
     }
 
     let form = {
@@ -198,6 +198,7 @@ function logInAs(settings, telegram_chat_id) {
         util.log_request_error(error, response);
         reject(error);
       }
+      console.log('logInAs', 'jar', jar);
       resolve(jar);
     });
   });
@@ -206,6 +207,7 @@ function logInAs(settings, telegram_chat_id) {
 function seizeOrder(orderNumber, jar) {
   return historyManager.findOrder(orderNumber).then(order => {
     const seize_url = parserApi.seizeOrderUrl(order.eid);
+    util.debugCookies(jar, settings, 'seizeOrder');
     const request = requestGlobal.defaults({ jar: jar });
     // const request = requestGlobal.defaults({});
     request.get(seize_url, function (error, response, body) {
@@ -213,7 +215,7 @@ function seizeOrder(orderNumber, jar) {
         util.log_request_error(error, response);
         throw new Error(error);
       }
-      logger.info(`seizeOrder ${order.orderNumber}`)
+      console.log('seizeOrder', order.orderNumber, 'jar', jar);
       return jar;
     });
   });

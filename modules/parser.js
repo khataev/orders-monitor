@@ -199,6 +199,7 @@ let parser = function (history_manager, request, settings, logger) {
   this.checkSeizeResult = function (request, order_number, jar) {
     return new Promise((resolve, reject) => {
       logger.warn(`checkSeizeResult, order_number: ${order_number}`);
+      util.debugCookies(jar, settings, 'checkSeizeResult');
       const req = request.defaults({ jar: jar });
       // HINT: use the same base url as for order details
       let details_url = settings.get('orders.details_url');
