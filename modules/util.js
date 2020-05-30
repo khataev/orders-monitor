@@ -71,7 +71,7 @@ let util = function () {
 
   this.debugCookies = function (jar, settings, customText) {
     if (!jar) {
-      logger.info('debugCookies', 'jar пуст');
+      console.log('debugCookies', 'jar пуст');
       return;
     }
 

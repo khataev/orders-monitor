@@ -206,17 +206,18 @@ function logInAs(settings, telegram_chat_id) {
 
 function seizeOrder(orderNumber, jar) {
   return historyManager.findOrder(orderNumber).then(order => {
-    const seize_url = parserApi.seizeOrderUrl(order.eid);
-    util.debugCookies(jar, settings, 'seizeOrder');
-    const request = requestGlobal.defaults({ jar: jar });
-    // const request = requestGlobal.defaults({});
-    request.get(seize_url, function (error, response, body) {
-      if (error) {
-        util.log_request_error(error, response);
-        throw new Error(error);
-      }
-      console.log('seizeOrder', order.orderNumber, 'jar', jar);
-      return jar;
+    return new Promise((resolve, reject) => {
+      const seize_url = parserApi.seizeOrderUrl(order.eid);
+      util.debugCookies(jar, settings, 'seizeOrder');
+      const request = requestGlobal.defaults({ jar: jar });
+      request.get(seize_url, function (error, response, body) {
+        if (error) {
+          util.log_request_error(error, response);
+          reject(error);
+        }
+        console.log('seizeOrder', order.orderNumber, 'jar', jar);
+        resolve(jar);
+      });
     });
   });
 }

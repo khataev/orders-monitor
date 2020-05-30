@@ -206,9 +206,9 @@ let parser = function (history_manager, request, settings, logger) {
       let start_time = util.getNowDate();
 
       req.get(details_url, function (error, response, body) {
-        logger.info(`---------------- ${order_number} ------------`);
-        logger.info(body);
-        logger.info(`---------------- ${order_number} ------------`);
+        logger.debug(`---------------- ${order_number} ------------`);
+        logger.debug(body);
+        logger.debug(`---------------- ${order_number} ------------`);
         if (error) {
           util.log_request_error(error, response);
           reject(error);
