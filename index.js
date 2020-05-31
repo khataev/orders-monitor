@@ -41,11 +41,6 @@ function handleSeizeButton(req, res, bot = "today") {
 
   logInAs(settings, chat_id)
     .then(jar => seizeOrder(order_number, jar))
-    .then(async jar => {
-      await util.sleep(2000);
-      console.log('sleep', 'jar', jar);
-      return jar;
-    })
     .then(jar => parserApi.checkSeizeResult(requestGlobal, order_number, jar))
     .then(orderSeized => {
       if (orderSeized) {
@@ -208,14 +203,12 @@ function seizeOrder(orderNumber, jar) {
   return historyManager.findOrder(orderNumber).then(order => {
     return new Promise((resolve, reject) => {
       const seize_url = parserApi.seizeOrderUrl(order.eid);
-      util.debugCookies(jar, settings, 'seizeOrder');
       const request = requestGlobal.defaults({ jar: jar });
       request.get(seize_url, function (error, response, body) {
         if (error) {
           util.log_request_error(error, response);
           reject(error);
         }
-        console.log('seizeOrder', order.orderNumber, 'jar', jar);
         resolve(jar);
       });
     });

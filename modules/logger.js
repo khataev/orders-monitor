@@ -40,8 +40,8 @@ function acronymizeLevel(level) {
 
 let logger = function () {
   this.writeToFile = function (text, file_name) {
-    fs.writeFile(file_name, text, function(err) {
-      if(err) {
+    fs.writeFile(file_name, text, function (err) {
+      if (err) {
         console.log(err);
       }
       else {
@@ -51,8 +51,8 @@ let logger = function () {
   };
 
   this.appendToFile = function (text, file_name) {
-    fs.appendFile(file_name, `${DateTime.local().toISO()}: ${text} \n`, function(err) {
-      if(err) {
+    fs.appendFile(file_name, `${DateTime.local().toISO()}: ${text} \n`, function (err) {
+      if (err) {
         console.log(err);
       }
       else {
@@ -61,9 +61,9 @@ let logger = function () {
     });
   };
 
-  this.log = function (text, log_level = 'info') {
+  this._log = function (log_level, text, ...additionalParams) {
     if (isEqualOrHigherLevel(log_level))
-      console.log(DateTime.local().toISO(), `[${acronymizeLevel(log_level)}]`, text);
+      console.log(DateTime.local().toISO(), `[${acronymizeLevel(log_level)}]`, text, ...additionalParams);
 
     log_levels
       .forEach(level => {
@@ -72,27 +72,31 @@ let logger = function () {
       });
   };
 
-  this.fatal = function (text) {
-    this.log(text, 'fatal');
+  this.log = function (text, ...additionalParams) {
+    this._log('info', text, ...additionalParams);
   };
 
-  this.error = function (text) {
-    this.log(text, 'error');
+  this.fatal = function (text, ...additionalParams) {
+    this._log('fatal', text, ...additionalParams);
   };
 
-  this.warn = function (text) {
-    this.log(text, 'warn');
+  this.error = function (text, ...additionalParams) {
+    this._log('error', text, ...additionalParams);
   };
 
-  this.info = function (text) {
-    this.log(text, 'info');
+  this.warn = function (text, ...additionalParams) {
+    this._log('warn', text, ...additionalParams);
   };
 
-  this.debug = function (text) {
-    this.log(text, 'debug');
+  this.info = function (text, ...additionalParams) {
+    this._log('info', text, ...additionalParams);
   };
 
-  this.currentLogLevel = function() {
+  this.debug = function (text, ...additionalParams) {
+    this._log('debug', text, ...additionalParams);
+  };
+
+  this.currentLogLevel = function () {
     return current_log_level;
   };
 

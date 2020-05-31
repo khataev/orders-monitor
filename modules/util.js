@@ -71,12 +71,12 @@ let util = function () {
 
   this.debugCookies = function (jar, settings, customText) {
     if (!jar) {
-      console.log('debugCookies', 'jar пуст');
+      logger.log('debugCookies', 'jar пуст');
       return;
     }
 
     let url = new URL(settings.get('orders.details_url'));
-    console.log(
+    logger.log(
       'debugCookies',
       customText,
       jar.getCookies(url.origin)
