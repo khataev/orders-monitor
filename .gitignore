@@ -9,3 +9,4 @@ settings.yml
 newrelic_agent.log
 *.log
 *.sql
+node_modules
