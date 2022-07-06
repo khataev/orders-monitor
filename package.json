@@ -29,7 +29,7 @@
     "node-telegram-bot-api": "^0.30.0",
     "pg": "^8.6.0",
     "request": "^2.88.0",
-    "sequelize": "^4.44.3",
+    "sequelize": "^6.1.0",
     "sequelize-cli": "^5.5.1"
   }
 }
