@@ -34,7 +34,7 @@ function checkProcessingOrder(orderNumber) {
 function printHistory(history) {
   logger.log('printing history');
   for (let property in history) {
-    if (history.hasOwnProperty(property)){
+    if (history.hasOwnProperty(property)) {
       let order = history[property];
       logger.log(`${property} - ${order.orderNumber}`);
     }
@@ -52,7 +52,7 @@ function unmarkSeizedOrders() {
   return Order
     .findAll({ where: where })
     .then(orders => {
-      let order_numbers = orders.map(order => order.OrderNumber);
+      // let order_numbers = orders.map(order => order.OrderNumber);
       Order.update({ seized: false }, { where: where });
 
       return orders;
@@ -77,7 +77,7 @@ async function markSeizedOrders(order_numbers, date) {
     .filter(property => !mapped_order_numbers.includes(property));
   await util.asyncForEach(
     date_orders,
-    async (index, property) => {
+    async (_index, property) => {
       let order = global_history[property];
       if (!order.seized) {
         order.seized = true;
@@ -85,7 +85,7 @@ async function markSeizedOrders(order_numbers, date) {
         result.push(order);
         logger.log(`order seized: ${property}`);
       }
-  });
+    });
 
   if (result.length > 0)
     logger.warn(`markSeizedOrders. return result for ${date_for_log}, count: ${result.length}`);
@@ -114,7 +114,7 @@ function getHistoryKeySimple(date_key, orderNumber) {
 function initOrdersHistory() {
   let promise =
     Order.findAll({ where: {} });
-      // .finally(() => Order.sequelize.close());
+  // .finally(() => Order.sequelize.close());
 
   return promise.then((orders = []) => {
     logger.warn(`initOrdersHistory, loaded: ${orders.length}`);
@@ -134,21 +134,22 @@ function deleteOldHistory(cutoff_date = util.getNowDate()) {
   });
 };
 
-function buildOrder(date_key, order_number, sent_messages) {
+function buildOrder(date_key, order_number, eid, sent_messages) {
   return Order.build(
     {
       date: date_key,
       orderNumber: order_number,
+      eid: eid,
       sent_messages: sent_messages
     }
   );
 }
 
-function saveOrderToHistory(orderNumber, date, sent_messages) {
+function saveOrderToHistory(orderNumber, eid, date, sent_messages) {
   date_key = getHistoryDateKey(date);
   history_key = getHistoryKeySimple(date_key, orderNumber);
   if (!global_history[history_key]) {
-    order = buildOrder(date_key, orderNumber, sent_messages);
+    order = buildOrder(date_key, orderNumber, eid, sent_messages);
     global_history[history_key] = order;
     logger.debug(`save to history ${history_key}: ${order.orderNumber}`);
     order.save();
@@ -162,12 +163,16 @@ function dayHistoryIncludes(date, order_number) {
   return result;
 }
 
-let history = function(settings, log) {
+let history = function (settings, log) {
   logger = log;
   sequelize = new Sequelize(database[settings.get('env')]);
   // TODO: import all models at once
   Order = sequelize.import("./../models/order");
   OrderBackup = sequelize.import("./../models/orderbackup");
+
+  this.findOrder = function (orderNumber) {
+    return Order.findOne({ where: { orderNumber: orderNumber } });
+  };
 
   this.initOrdersHistory = initOrdersHistory;
 
@@ -176,26 +181,26 @@ let history = function(settings, log) {
   // TODO: call once a day
   this.deleteOldHistory = deleteOldHistory;
 
-  this.purgeHistory = function() {
+  this.purgeHistory = function () {
     return Order.destroy({
       where: {},
       truncate: true
     });
   };
 
-  this.purgeHistoryBackup = function() {
+  this.purgeHistoryBackup = function () {
     return OrderBackup.destroy({
       where: {},
       truncate: true
     });
   };
 
-  this.backupHistory = function() {
+  this.backupHistory = function () {
     return this.purgeHistoryBackup()
       .then(() => {
         sequelize.query(
-          'INSERT INTO "OrderBackups" (date, "orderNumber", "createdAt", "updatedAt") SELECT date, "orderNumber", "createdAt", "updatedAt" FROM "Orders"'
-        ).spread((results, metadata) => {});
+          'INSERT INTO "OrderBackups" (date, "orderNumber", eid, "createdAt", "updatedAt") SELECT date, "orderNumber", eid, "createdAt", "updatedAt" FROM "Orders"'
+        ).spread((results, metadata) => { });
       });
   };
 
@@ -203,12 +208,12 @@ let history = function(settings, log) {
     return this.purgeHistory()
       .then(() => {
         sequelize.query(
-          'INSERT INTO "Orders" (date, "orderNumber", "createdAt", "updatedAt") SELECT date, "orderNumber", "createdAt", "updatedAt" FROM "OrderBackups"'
-        ).spread((results, metadata) => {});
+          'INSERT INTO "Orders" (date, "orderNumber", eid, "createdAt", "updatedAt") SELECT date, "orderNumber", eid, "createdAt", "updatedAt" FROM "OrderBackups"'
+        ).spread((results, metadata) => { });
       });
   };
 
-  this.closeConnections = function() {
+  this.closeConnections = function () {
     sequelize.close();
   };
 

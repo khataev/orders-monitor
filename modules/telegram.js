@@ -10,14 +10,14 @@ function cropSentMessage(message) {
 }
 
 function answerCallbackQueryToday(query_id, text) {
-  bot_today.answerCallbackQuery(query_id, { text: text, show_alert: true } );
+  bot_today.answerCallbackQuery(query_id, { text: text, show_alert: true });
 };
 
 function answerCallbackQueryTomorrow(query_id, text) {
-  bot_tomorrow.answerCallbackQuery(query_id, { text: text, show_alert: true } );
+  bot_tomorrow.answerCallbackQuery(query_id, { text: text, show_alert: true });
 };
 
-let telegram = function(settings, logger, set_webhooks = false) {
+let telegram = function (settings, logger, set_webhooks = false) {
   let today_token = settings.get('credentials.telegram_bot.today.api_token'),
     tomorrow_token = settings.get('credentials.telegram_bot.tomorrow.api_token'),
     message_prepender = settings.get('debug.message_prepender'),
@@ -58,7 +58,7 @@ let telegram = function(settings, logger, set_webhooks = false) {
     return elem['message']['chat']['id'];
   };
 
-  this.answerCallbackQuery = function(query_id, text, bot = 'today') {
+  this.answerCallbackQuery = function (query_id, text, bot = 'today') {
     if (bot === 'today') {
       answerCallbackQueryToday(query_id, text);
     }
@@ -72,7 +72,7 @@ let telegram = function(settings, logger, set_webhooks = false) {
     let api_token = this.getApiToken(settings, date);
     let url = `https://api.telegram.org/bot${api_token}/getUpdates`;
 
-    return new Promise(function(resolve, reject) {
+    return new Promise(function (resolve, reject) {
       let params = { url: url };
       request.post(params, function (error, response, body) {
         if (error) {
@@ -93,7 +93,7 @@ let telegram = function(settings, logger, set_webhooks = false) {
     });
   };
 
-  this.getChatIds = function (){
+  this.getChatIds = function () {
     return settings
       .get('credentials.telegram_bot.chat_ids')
       .map(chat_id => chat_id.toString().trim());
@@ -119,7 +119,7 @@ let telegram = function(settings, logger, set_webhooks = false) {
         );
         logger.debug(message);
         return message;
-    });
+      });
   };
 
   this.editSubscriberMessageForBot = function (chat_id, message_id, reply_markup, bot) {
@@ -166,16 +166,16 @@ let telegram = function(settings, logger, set_webhooks = false) {
       logger.info(`editMessagesInTelegramForBot. destination chat_ids: ${chat_ids}`);
       let parent = this;
       await util.asyncForEach(chat_ids, async (i, chat_id) => {
-          let message_id = sent_messages[chat_id];
-          parent
-            .editSubscriberMessageForBot(chat_id, message_id, reply_markup, bot)
-            .catch(error => {
-              logger
-                .warn(
-                  `editMessagesInTelegramForBot. chat_id: ${chat_id}, message_id: ${message_id}, ERROR: ${error.message}`
-                );
-            });
-          await util.sleep(parent.getDelayBetweenRequests());
+        let message_id = sent_messages[chat_id];
+        parent
+          .editSubscriberMessageForBot(chat_id, message_id, reply_markup, bot)
+          .catch(error => {
+            logger
+              .warn(
+                `editMessagesInTelegramForBot. chat_id: ${chat_id}, message_id: ${message_id}, ERROR: ${error.message}`
+              );
+          });
+        await util.sleep(parent.getDelayBetweenRequests());
       });
     }
   };
@@ -186,13 +186,13 @@ let telegram = function(settings, logger, set_webhooks = false) {
     return this.editMessagesInTelegramForBot(sent_messages, reply_markup, bot);
   };
 
-  this.restoreSeizedMessages = async function(orders) {
+  this.restoreSeizedMessages = async function (orders) {
     const parent = this;
     await util.asyncForEach(orders, async (i, order) => {
       let bot = util.wasOrderSentToTodayBot(order) ? bot_today : bot_tomorrow;
       await parent.editMessagesInTelegramForBot(
         order.sent_messages,
-        parent.getReplyMarkup(order.orderNumber),
+        parent.getReplyMarkup(order.orderNumber, order.eid),
         bot
       );
     });
@@ -204,7 +204,7 @@ let telegram = function(settings, logger, set_webhooks = false) {
       settings.get('credentials.telegram_bot.tomorrow.api_token');
   };
 
-  this.getDelayBetweenRequests = function (){
+  this.getDelayBetweenRequests = function () {
     return settings.get('credentials.telegram_bot.delay_between_requests');
   };
 
@@ -220,17 +220,17 @@ let telegram = function(settings, logger, set_webhooks = false) {
 
   this.getReplyMarkup = function (orderNumber) {
     return {
-        "inline_keyboard": [
-          [{ "text": 'Забрать заказ', "callback_data": `seizeOrder_${orderNumber}` }]
-        ]
-      };
+      "inline_keyboard": [
+        [{ "text": 'Забрать заказ', "callback_data": `seizeOrder_${orderNumber}` }]
+      ]
+    };
   };
 
-  this.getTodayBot = function() {
+  this.getTodayBot = function () {
     return bot_today;
   };
 
-  this.getTomorrowBot = function() {
+  this.getTomorrowBot = function () {
     return bot_tomorrow;
   };
 };

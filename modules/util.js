@@ -2,7 +2,7 @@ const { DateTime, Settings } = require('luxon');
 const constants = require('./constants');
 const logger = require('./logger');
 
-let util = function() {
+let util = function () {
   Settings.defaultZoneName = "Europe/Moscow";
 
   this.sleep = async function (ms) {
@@ -39,7 +39,7 @@ let util = function() {
     return date.toFormat(constants.DATE_FORMAT);
   };
 
-  this.printDuration = function(attempt, start, end, custom_text) {
+  this.printDuration = function (attempt, start, end, custom_text) {
     request_duration = end.diff(start, ['seconds', 'milliseconds']);
     logger.warn(`request ${custom_text} attempt ${attempt} duration: ${request_duration.toFormat('s.SS')}`);
   };
@@ -51,15 +51,15 @@ let util = function() {
     logger.error(`statusCode: ${response && response.statusCode}`);
   };
 
-  this.getNowDate = function() {
+  this.getNowDate = function () {
     return DateTime.local();
   };
 
-  this.getTomorrowDate = function() {
+  this.getTomorrowDate = function () {
     return DateTime.local().plus({ days: 1 });
   };
 
-  this.wasOrderSentToTodayBot = function(order) {
+  this.wasOrderSentToTodayBot = function (order) {
     let order_today = DateTime.fromJSDate(order.createdAt);
     let order_date = DateTime.fromFormat(order.date, constants.ORDERS_HISTORY_DATE_FORMAT);
 
@@ -67,6 +67,20 @@ let util = function() {
       order_date.year == order_today.year &&
       order_date.month == order_today.month &&
       order_date.day == order_today.day;
+  }
+
+  this.debugCookies = function (jar, settings, customText) {
+    if (!jar) {
+      logger.log('debugCookies', 'jar пуст');
+      return;
+    }
+
+    let url = new URL(settings.get('orders.details_url'));
+    logger.log(
+      'debugCookies',
+      customText,
+      jar.getCookies(url.origin)
+    );
   }
 };
 
