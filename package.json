@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "engines": {
-    "node": "11.0.0"
+    "node": "^16.17.0"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
@@ -20,16 +20,16 @@
   "author": "Andrey Khataev <khataev@yandex.ru>",
   "license": "ISC",
   "dependencies": {
-    "body-parser": "^1.18.3",
-    "cheerio": "^1.0.0-rc.2",
-    "convict": "^4.4.0",
-    "express": "^4.16.4",
-    "luxon": "^1.4.4",
-    "newrelic": "^4.12.0",
-    "node-telegram-bot-api": "^0.30.0",
-    "pg": "^8.6.0",
-    "request": "^2.88.0",
-    "sequelize": "^4.44.3",
-    "sequelize-cli": "^5.5.1"
+    "body-parser": "1.18.3",
+    "cheerio": "1.0.0-rc.2",
+    "convict": "4.4.0",
+    "express": "4.16.4",
+    "luxon": "1.4.4",
+    "newrelic": "9.0.3",
+    "node-telegram-bot-api": "0.30.0",
+    "pg": "8.6.0",
+    "request": "2.88.0",
+    "sequelize": "4.44.3",
+    "sequelize-cli": "5.5.1"
   }
 }
