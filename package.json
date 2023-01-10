@@ -22,7 +22,7 @@
   "dependencies": {
     "body-parser": "^1.18.3",
     "cheerio": "^1.0.0-rc.2",
-    "convict": "^4.4.0",
+    "convict": "^6.2.4",
     "express": "^4.16.4",
     "luxon": "^1.4.4",
     "newrelic": "^4.12.0",
